@@ -2,12 +2,16 @@ Architecture Decision Records
 =============================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-Architecture Decision Records (ADRs) document important decisions made during development.
+   0001-vault-backed-storage
+
+Architecture Decision Records (ADRs) document important decisions made
+during development.
 
 Each ADR covers:
 
-- Context: What problem we're solving
-- Decision: What we decided
-- Consequences: Trade-offs and implications
+- **Context** — what problem we're solving
+- **Decision** — what we decided
+- **Consequences** — trade-offs and implications
+- **Alternatives considered** — paths not taken, with rationale
