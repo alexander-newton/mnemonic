@@ -841,8 +841,8 @@ CI fails if:
 
 ```toml
 [vault]
-path   = "/home/alexander/Documents/vault"
-remote = "git@github.com:alexander-newton/vault.git"
+path   = "/path/to/your/vault"
+remote = "git@github.com:you/vault.git"
 branch = "main"
 watch  = false
 
