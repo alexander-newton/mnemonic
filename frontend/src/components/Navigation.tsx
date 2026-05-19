@@ -17,6 +17,8 @@ export const Navigation: React.FC = () => {
   return (
     <nav className="app-nav">
       <NavLink to="/decks">Decks</NavLink>
+      <NavLink to="/usage">Usage</NavLink>
+      <NavLink to="/settings">Settings</NavLink>
     </nav>
   );
 };

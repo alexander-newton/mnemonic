@@ -2,15 +2,29 @@
  * Tests for AppLayout component - Main application layout.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react'; // render used inside renderWithClient helper
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from '../../src/layouts/AppLayout';
+
+// VaultStatusBanner calls api.vaultStatus via useQuery.
+// Provide a minimal QueryClient and stub the fetch so tests don't hit the network.
+vi.mock('../../src/services/api', () => ({
+  api: {
+    vaultStatus: vi.fn().mockResolvedValue({ head: 'abc1234', dirty: false, has_unpushed_commits: false }),
+  },
+}));
+
+function renderWithClient(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 describe('AppLayout', () => {
   describe('rendering', () => {
     it('renders navigation component', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -24,7 +38,7 @@ describe('AppLayout', () => {
     });
 
     it('renders main content area', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -38,7 +52,7 @@ describe('AppLayout', () => {
     });
 
     it('renders outlet for child routes', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/test']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -54,7 +68,7 @@ describe('AppLayout', () => {
 
   describe('structure', () => {
     it('has proper page structure with main element', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -68,7 +82,7 @@ describe('AppLayout', () => {
     });
 
     it('applies min-h-screen class', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -82,7 +96,7 @@ describe('AppLayout', () => {
     });
 
     it('applies gray background', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -96,7 +110,7 @@ describe('AppLayout', () => {
     });
 
     it('applies max-width to main content', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -112,7 +126,7 @@ describe('AppLayout', () => {
 
   describe('multiple routes', () => {
     it('renders content for route 1', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/page1']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -127,7 +141,7 @@ describe('AppLayout', () => {
     });
 
     it('renders content for route 2', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/page2']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -144,7 +158,7 @@ describe('AppLayout', () => {
 
   describe('responsive design', () => {
     it('applies responsive padding to main content', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -158,7 +172,7 @@ describe('AppLayout', () => {
     });
 
     it('applies responsive max-width to main', () => {
-      const { container } = render(
+      const { container } = renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -174,7 +188,7 @@ describe('AppLayout', () => {
 
   describe('accessibility', () => {
     it('has proper main element for landmark navigation', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -188,7 +202,7 @@ describe('AppLayout', () => {
     });
 
     it('has proper nav element', () => {
-      render(
+      renderWithClient(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<AppLayout />}>
