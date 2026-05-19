@@ -47,3 +47,29 @@ def test_scan_skips_mnemonic_folder(tmp_path: Path):
     _make_note(vault / ".mnemonic" / "should-not-scan.md", "## Card\n\nA ==X==.")
     cards = list(scan_vault(vault, inject_missing_ids=False))
     assert cards == []
+
+
+def test_scan_skips_malformed_note_and_logs(tmp_path: Path):
+    """A malformed note must be skipped (not halt), and logged to scan.log."""
+    vault = tmp_path / "vault"
+    # Valid note
+    _make_note(
+        vault / "valid.qmd",
+        "---\ntitle: valid\n---\n## Card\n\nA ==term==. ^card-aaaabbbb\n",
+    )
+    # Malformed note: has ## Card and title but ## Variations section is missing markers
+    _make_note(
+        vault / "bad.qmd",
+        "---\ntitle: bad\n---\n"
+        "## Card\n\nA ==term==. ^card-ccccdddd\n\n"
+        "## Variations\n\nsome content without markers\n",
+    )
+    scan_log = vault / ".mnemonic" / "scan.log"
+    cards = list(scan_vault(vault, scan_log_path=scan_log))
+    # Only the valid card comes through
+    assert len(cards) == 1
+    assert cards[0].card_id == "card-aaaabbbb"
+    # The scan log must exist and mention bad.qmd
+    assert scan_log.exists()
+    log_text = scan_log.read_text()
+    assert "bad.qmd" in log_text
