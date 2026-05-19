@@ -1,0 +1,27 @@
+## Base card
+
+{{ base_card_text }}
+
+## Prior variations
+
+{% if prior_variations %}
+{% for v in prior_variations %}
+- Q: {{ v.q }}
+  A: {{ v.a }}
+  (rating: {{ v.rating }})
+{% endfor %}
+{% else %}
+(none yet)
+{% endif %}
+
+## FSRS state
+
+- stability: {{ fsrs.stability }}
+- reps: {{ fsrs.reps }}
+- lapses: {{ fsrs.lapses }}
+- recent ratings: {{ fsrs.recent_ratings }}
+
+## Task
+
+Apply the {{ strategy_name }} strategy. Produce one Q/A pair following the
+output schema in the skill.
