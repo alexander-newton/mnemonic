@@ -23,6 +23,10 @@ class GeneratedVariation:
     model: str
     cost_millicents: int
     raw_response: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
 
 
 class VariationGenerator:
@@ -126,6 +130,10 @@ class VariationGenerator:
             model=completion.model,
             cost_millicents=completion.usage.cost_millicents,
             raw_response=completion.text,
+            input_tokens=completion.usage.input_tokens,
+            output_tokens=completion.usage.output_tokens,
+            cache_read_tokens=completion.usage.cache_read_tokens,
+            cache_creation_tokens=completion.usage.cache_creation_tokens,
         )
 
     @staticmethod

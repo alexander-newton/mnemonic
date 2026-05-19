@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 
-from mnemonic.db.models import VariationMeta
+from mnemonic.db.models import LLMUsage, VariationMeta
 from mnemonic.db.sqlite import session_scope
 from mnemonic.vault.injector import (
     append_variation_entry,
@@ -57,17 +57,30 @@ def persist_variation(
     ).hexdigest()
     rel_path = str(note_path.relative_to(vault_root))
 
+    now = datetime.now()
     with session_scope(engine) as s:
         s.add(VariationMeta(
             id=variation_id,
             card_id=card_id,
             strategy=variation.strategy,
             model=variation.model,
-            generated_at=datetime.now(),
+            generated_at=now,
             shown_count=1,
             helpful_count=0,
             content_hash=content_hash,
             note_path=rel_path,
+        ))
+        s.add(LLMUsage(
+            id=uuid.uuid4().hex,
+            timestamp=now,
+            model=variation.model,
+            purpose=f"variation:{variation.strategy}",
+            input_tokens=variation.input_tokens,
+            output_tokens=variation.output_tokens,
+            cache_read_tokens=variation.cache_read_tokens,
+            cache_creation_tokens=variation.cache_creation_tokens,
+            cost_millicents=variation.cost_millicents,
+            card_id=card_id,
         ))
     return variation_id
 
