@@ -1,0 +1,135 @@
+name: CI - Tests & Linting
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    name: Backend Tests & Linting
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: mnemonic_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: mnemonic_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync dependencies
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv sync
+
+      - name: Run tests
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv run pytest --cov=mnemonic --cov-report=xml --cov-fail-under=85
+        env:
+          DATABASE_URL: postgresql://mnemonic_test:test_password@localhost:5432/mnemonic_test
+          REDIS_URL: redis://localhost:6379/0
+
+      - name: Check core module coverage (95% minimum)
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv run pytest --cov=mnemonic.core --cov-fail-under=95 --cov-report=term-only
+        env:
+          DATABASE_URL: postgresql://mnemonic_test:test_password@localhost:5432/mnemonic_test
+          REDIS_URL: redis://localhost:6379/0
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend/coverage.xml
+          flags: backend
+
+      - name: Run Black formatter check
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv run black --check src tests
+
+      - name: Run Ruff linter
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv run ruff check src tests
+
+      - name: Run mypy type checker
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv run mypy src
+
+  frontend:
+    name: Frontend Tests & Linting
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["20.x"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./frontend/coverage/coverage-final.json
+          flags: frontend
+
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run Prettier check
+        run: |
+          cd frontend
+          npm run format -- --check

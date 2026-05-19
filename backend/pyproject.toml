@@ -1,0 +1,193 @@
+[project]
+name = "mnemonic"
+version = "0.1.0"
+description = "Adaptive spaced repetition system with LLM-powered question variations"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Mnemonic Contributors" }]
+license = { text = "MIT" }
+
+dependencies = [
+    # Core framework
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic[email]>=2.5.0",
+    "pydantic-settings>=2.1.0",
+
+    # Database
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.12.0",
+
+    # Cache
+    "redis>=5.0.0",
+
+    # Authentication & security
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[argon2]>=1.7.4",
+    "argon2-cffi>=21.3.0",
+    "python-multipart>=0.0.6",
+
+    # HTTP client
+    "httpx>=0.25.0",
+
+    # LLM
+    "dspy-ai>=2.0.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+    "pypandoc>=1.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+
+    # Code quality
+    "black>=23.12.0",
+    "ruff>=0.1.8",
+    "mypy>=1.7.0",
+    "sqlalchemy[mypy]>=2.0.0",
+
+    # Documentation
+    "sphinx>=7.2.0",
+    "sphinx-rtd-theme>=2.0.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "C",      # flake8-comprehensions
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long
+    "C901",   # complex function
+    "B008",   # function call in default argument
+]
+exclude = [
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[[tool.mypy.overrides]]
+module = "alembic.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "dspy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jose.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "passlib.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pypandoc"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "mnemonic.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "--strict-markers -ra"
+markers = [
+    "unit: unit tests",
+    "integration: integration tests",
+    "e2e: end-to-end tests",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/mnemonic"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+precision = 2
+skip_covered = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

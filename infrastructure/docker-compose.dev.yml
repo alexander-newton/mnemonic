@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: mnemonic_dev
+      POSTGRES_PASSWORD: mnemonic_dev_password
+      POSTGRES_DB: mnemonic_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnemonic_dev -d mnemonic_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - mnemonic_dev
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - mnemonic_dev
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://mnemonic_dev:mnemonic_dev_password@postgres:5432/mnemonic_dev
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uv run uvicorn mnemonic.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    networks:
+      - mnemonic_dev
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/index.html:/app/index.html
+      - ../frontend/vite.config.ts:/app/vite.config.ts
+      - ../frontend/tsconfig.json:/app/tsconfig.json
+    depends_on:
+      - backend
+    command: npm run dev
+    restart: unless-stopped
+    networks:
+      - mnemonic_dev
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  mnemonic_dev:
+    driver: bridge

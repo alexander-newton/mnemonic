@@ -1,0 +1,84 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: mnemonic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_DB: mnemonic
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnemonic -d mnemonic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    networks:
+      - mnemonic
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:?error}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    networks:
+      - mnemonic
+
+  backend:
+    image: mnemonic:backend-latest
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://mnemonic:${POSTGRES_PASSWORD:?error}@postgres:5432/mnemonic
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?error}@redis:6379/0
+      - ENVIRONMENT=production
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?error}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+    networks:
+      - mnemonic
+
+  frontend:
+    image: mnemonic:frontend-latest
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_URL=https://api.mnemonic.local
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - mnemonic
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  mnemonic:
+    driver: bridge

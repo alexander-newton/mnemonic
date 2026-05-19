@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
+*.py,cover
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.uv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+*.tsbuildinfo
+dist/
+build/
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE directories
+.idea/
+.vscode/
+*.sublime-*
+
+# Git
+.git/
+
+# Alembic
+alembic/versions/*.pyc

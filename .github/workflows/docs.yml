@@ -1,0 +1,70 @@
+name: Documentation - Build & Deploy
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "docs/**"
+      - "CLAUDE.md"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "CLAUDE.md"
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          $HOME/.cargo/bin/uv sync
+
+      - name: Build documentation
+        run: |
+          cd docs
+          make html
+
+      - name: Check for broken links
+        run: |
+          cd docs
+          make linkcheck
+        continue-on-error: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: docs/build/html/
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: documentation
+          path: docs/build/html/
+
+      - name: Deploy placeholder
+        run: |
+          echo "Documentation deployment would happen here"
