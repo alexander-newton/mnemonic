@@ -5,6 +5,7 @@
 
 import { Outlet } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
+import VaultStatusBanner from '../components/VaultStatusBanner';
 
 /**
  * AppLayout provides the main layout wrapper for all pages.
@@ -21,6 +22,7 @@ export const AppLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
+      <VaultStatusBanner />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />
       </main>

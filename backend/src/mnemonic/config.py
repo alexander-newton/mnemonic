@@ -1,69 +1,127 @@
-"""Configuration management for Mnemonic backend."""
+"""Configuration loader for Mnemonic.
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+Loads from ~/.config/mnemonic/config.toml (user-global) overlaid by
+<vault>/.mnemonic/config.toml (vault-local). Vault-local wins per-key.
+"""
 
-from mnemonic.exceptions import LLMConfigError
+from __future__ import annotations
 
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 
-class Settings(BaseSettings):
-    """Application settings from environment variables."""
-
-    # Database
-    database_url: str = "postgresql://mnemonic:changeme@localhost:5432/mnemonic"
-
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
-
-    # Environment
-    environment: str = "development"
-    debug: bool = True
-    log_level: str = "DEBUG"
-
-    # LLM
-    openrouter_api_key: str = ""
-    openrouter_model: str = "openai/gpt-4"
-
-    # Server
-    server_host: str = "0.0.0.0"
-    server_port: int = 8000
-
-    # Authentication
-    secret_key: str = "development-secret-key-change-in-production"
-    jwt_expiration_minutes: int = 60 * 24 * 7  # 7 days
-    password_hash_rounds: int = 12
-
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
-
-    @field_validator("openrouter_api_key")
-    @classmethod
-    def validate_llm_config_production(cls, v: str, info) -> str:
-        """Validate LLM configuration in production.
-
-        In production mode, the OpenRouter API key must be provided, as LLM
-        variations are a core feature of the spaced repetition system.
-
-        Args:
-            v: The API key value
-            info: Validation context containing other field values
-
-        Returns:
-            The validated API key
-
-        Raises:
-            LLMConfigError: If in production mode without a valid API key
-        """
-        # Access the environment field from the context
-        data = info.data
-        environment = data.get("environment", "development")
-
-        if environment == "production" and not v:
-            raise LLMConfigError(
-                "OpenRouter API key is required in production. "
-                "Please set OPENROUTER_API_KEY environment variable. "
-                "Get your key at https://openrouter.ai/keys"
-            )
-        return v
+from mnemonic.exceptions import VaultNotConfiguredError
 
 
-settings = Settings()
+@dataclass(frozen=True)
+class VaultConfig:
+    path: Path
+    remote: str | None
+    branch: str
+    watch: bool
+
+
+@dataclass(frozen=True)
+class BudgetConfig:
+    daily_cents: int
+    monthly_cents: int
+
+
+@dataclass(frozen=True)
+class LLMConfig:
+    api_key_env: str
+    model_default: str
+    model_rephrase: str
+    model_offline: str
+    budget: BudgetConfig
+
+
+@dataclass(frozen=True)
+class DefaultsConfig:
+    variation_enabled: bool
+    variation_frequency: float
+    leech_threshold: int
+    daily_review_limit: int
+    daily_new_limit: int
+
+
+@dataclass(frozen=True)
+class Config:
+    vault: VaultConfig
+    llm: LLMConfig
+    defaults: DefaultsConfig
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    out = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def _user_global_default() -> Path:
+    return Path.home() / ".config" / "mnemonic" / "config.toml"
+
+
+def load_config(*, user_global_path: Path | None = None) -> Config:
+    """Load merged config. Returns frozen Config dataclass.
+
+    Raises:
+        VaultNotConfiguredError: if vault.path is missing or empty after merge.
+    """
+    user_path = user_global_path or _user_global_default()
+    if not user_path.exists():
+        raise VaultNotConfiguredError(
+            f"User config missing at {user_path}. "
+            "Run `mnemonic init` or create the file manually with [vault], [llm], [defaults] sections."
+        )
+    user_data = tomllib.loads(user_path.read_text())
+
+    vault_path_str = user_data.get("vault", {}).get("path", "")
+    if not vault_path_str:
+        raise VaultNotConfiguredError(
+            "[vault] path is missing in config. "
+            f"Set vault.path in {user_path}."
+        )
+    vault_path = Path(vault_path_str)
+
+    vault_local_path = vault_path / ".mnemonic" / "config.toml"
+    if vault_local_path.exists():
+        vault_data = tomllib.loads(vault_local_path.read_text())
+        merged = _deep_merge(user_data, vault_data)
+    else:
+        merged = user_data
+
+    vault_section = merged["vault"]
+    llm_section = merged["llm"]
+    budget_section = llm_section["budget"]
+    defaults_section = merged["defaults"]
+
+    return Config(
+        vault=VaultConfig(
+            path=Path(vault_section["path"]),
+            remote=vault_section.get("remote"),
+            branch=vault_section.get("branch", "main"),
+            watch=vault_section.get("watch", False),
+        ),
+        llm=LLMConfig(
+            api_key_env=llm_section["api_key_env"],
+            model_default=llm_section["model_default"],
+            model_rephrase=llm_section["model_rephrase"],
+            model_offline=llm_section["model_offline"],
+            budget=BudgetConfig(
+                daily_cents=budget_section["daily_cents"],
+                monthly_cents=budget_section["monthly_cents"],
+            ),
+        ),
+        defaults=DefaultsConfig(
+            variation_enabled=defaults_section["variation_enabled"],
+            variation_frequency=defaults_section["variation_frequency"],
+            leech_threshold=defaults_section["leech_threshold"],
+            daily_review_limit=defaults_section["daily_review_limit"],
+            daily_new_limit=defaults_section["daily_new_limit"],
+        ),
+    )

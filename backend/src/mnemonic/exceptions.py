@@ -101,3 +101,81 @@ class MathJaxError(RenderError):
     """MathJax rendering failed."""
 
     pass
+
+
+# LLM additions
+class LLMBudgetExceededError(LLMError):
+    """LLM cost cap (daily or monthly) reached."""
+
+    def __init__(self, spent_millicents: int, cap_millicents: int, scope: str) -> None:
+        """Initialize budget exceeded error.
+
+        Args:
+            spent_millicents: Amount spent in millicents (1/100th of a cent)
+            cap_millicents: Budget cap in millicents
+            scope: Budget scope (e.g., "daily", "monthly")
+        """
+        self.spent_millicents = spent_millicents
+        self.cap_millicents = cap_millicents
+        self.scope = scope
+        super().__init__(
+            f"LLM {scope} budget exceeded: spent "
+            f"{spent_millicents / 1000:.2f} cents of {cap_millicents / 1000:.2f} cents. "
+            f"Raise the cap in [llm.budget] in ~/.config/mnemonic/config.toml."
+        )
+
+
+# Git errors
+class GitError(MnemonicError):
+    """Base class for Git operation failures."""
+
+    pass
+
+
+class GitDirtyWorkingTreeError(GitError):
+    """Vault has uncommitted changes; refuse to start a session."""
+
+    pass
+
+
+class GitNonFastForwardError(GitError):
+    """Remote has commits that cannot fast-forward into local."""
+
+    pass
+
+
+class GitPushRejectedError(GitError):
+    """Push rejected by remote (typically: concurrent push)."""
+
+    pass
+
+
+# Vault errors
+class VaultError(MnemonicError):
+    """Base class for vault-layer failures."""
+
+    pass
+
+
+class VaultNotConfiguredError(VaultError):
+    """vault_path missing and no vault_remote available to clone."""
+
+    pass
+
+
+class MalformedNoteError(VaultError):
+    """A card-note does not match the canonical structure."""
+
+    pass
+
+
+class MalformedVariationSectionError(VaultError):
+    """## Variations section is missing the begin/end markers."""
+
+    pass
+
+
+class OrphanCardError(VaultError):
+    """A SchedulingState row has no corresponding card-note."""
+
+    pass

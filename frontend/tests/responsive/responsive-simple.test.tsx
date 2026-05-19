@@ -6,17 +6,13 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AppLayout } from '../../src/layouts/AppLayout';
-import { LoginPage } from '../../src/pages/LoginPage';
-import { RegisterPage } from '../../src/pages/RegisterPage';
 import { DeckListPage } from '../../src/pages/DeckListPage';
 import { DeckDetailPage } from '../../src/pages/DeckDetailPage';
 import { Modal } from '../../src/components/ui/Modal';
 import { Button } from '../../src/components/ui/Button';
 import { Input } from '../../src/components/ui/Input';
-import { useAuthStore } from '../../src/stores';
-import type { User } from '../../src/types';
 
 const createTestQueryClient = () =>
   new QueryClient({
@@ -26,19 +22,16 @@ const createTestQueryClient = () =>
     },
   });
 
-const renderAppRoutes = (initialEntries: string[] = ['/']) => {
+const renderAppRoutes = (initialEntries: string[] = ['/decks']) => {
   const testQueryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={testQueryClient}>
       <MemoryRouter initialEntries={initialEntries}>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={<Navigate to="/decks" replace />} />
             <Route path="/decks" element={<DeckListPage />} />
-            <Route path="/decks/:id" element={<DeckDetailPage />} />
-            <Route index element={<Navigate to="/decks" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/decks/:folder" element={<DeckDetailPage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -47,101 +40,59 @@ const renderAppRoutes = (initialEntries: string[] = ['/']) => {
 };
 
 describe('Responsive Design - Multi-Viewport', () => {
-  beforeEach(() => {
-    useAuthStore.getState().logout();
-    localStorage.clear();
-  });
-
   describe('Mobile design (375px)', () => {
-    it('should render login page on mobile', () => {
-      renderAppRoutes(['/login']);
+    it('should render deck list on mobile', () => {
+      renderAppRoutes(['/decks']);
 
-      expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
-      expect(screen.getByRole('form')).toBeInTheDocument();
-    });
-
-    it('should render register page on mobile', () => {
-      renderAppRoutes(['/register']);
-
-      expect(screen.getByRole('heading', { name: /register/i })).toBeInTheDocument();
-      expect(screen.getByRole('form')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /my decks/i })).toBeInTheDocument();
     });
 
     it('should have responsive padding on mobile', () => {
-      const { container } = renderAppRoutes(['/login']);
+      const { container } = renderAppRoutes(['/decks']);
 
       const mainContent = container.querySelector('[class*="px-"]');
       expect(mainContent).toBeInTheDocument();
     });
 
-    it('should stack form elements vertically', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      const form = screen.getByRole('form');
-      expect(form).toHaveClass('space-y-4');
-    });
-
     it('navigation should be visible on mobile', () => {
-      renderAppRoutes(['/login']);
+      renderAppRoutes(['/decks']);
 
       expect(screen.getByRole('navigation')).toBeInTheDocument();
-      expect(screen.getByText('Mnemonic')).toBeInTheDocument();
-    });
-
-    it('form inputs should not overflow', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      const inputs = container.querySelectorAll('input[type="email"], input[type="password"]');
-      inputs.forEach((input) => {
-        expect(input).toHaveClass('w-full');
-      });
     });
   });
 
   describe('Tablet design (768px)', () => {
-    it('should render login page on tablet', () => {
-      renderAppRoutes(['/login']);
+    it('should render deck list on tablet', () => {
+      renderAppRoutes(['/decks']);
 
-      expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
-    });
-
-    it('should render register page on tablet', () => {
-      renderAppRoutes(['/register']);
-
-      expect(screen.getByRole('heading', { name: /register/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /my decks/i })).toBeInTheDocument();
     });
 
     it('navigation should be visible on tablet', () => {
-      renderAppRoutes(['/login']);
+      renderAppRoutes(['/decks']);
 
       expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
   });
 
   describe('Desktop design (1024px)', () => {
-    it('should render login page on desktop', () => {
-      renderAppRoutes(['/login']);
+    it('should render deck list on desktop', () => {
+      renderAppRoutes(['/decks']);
 
-      expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
-    });
-
-    it('should render register page on desktop', () => {
-      renderAppRoutes(['/register']);
-
-      expect(screen.getByRole('heading', { name: /register/i })).toBeInTheDocument();
-    });
-
-    it('should have max-width container on desktop', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      const maxWidthContainer = container.querySelector('.max-w-md');
-      expect(maxWidthContainer).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /my decks/i })).toBeInTheDocument();
     });
 
     it('navigation should be visible on desktop', () => {
-      renderAppRoutes(['/login']);
+      renderAppRoutes(['/decks']);
 
       expect(screen.getByRole('navigation')).toBeInTheDocument();
+    });
+
+    it('should have max-width container on desktop', () => {
+      const { container } = renderAppRoutes(['/decks']);
+
+      const maxWidthContainer = container.querySelector('[class*="max-w-"]');
+      expect(maxWidthContainer).toBeInTheDocument();
     });
   });
 
@@ -155,8 +106,7 @@ describe('Responsive Design - Multi-Viewport', () => {
         </Modal>
       );
 
-      const title = screen.getByText('Test Modal');
-      expect(title).toBeInTheDocument();
+      expect(screen.getByText('Test Modal')).toBeInTheDocument();
     });
 
     it('should render modal content', () => {
@@ -168,163 +118,60 @@ describe('Responsive Design - Multi-Viewport', () => {
         </Modal>
       );
 
-      const content = screen.getByText('Modal content');
-      expect(content).toBeInTheDocument();
+      expect(screen.getByText('Modal content')).toBeInTheDocument();
     });
   });
 
   describe('Touch target sizes', () => {
     it('buttons should have adequate padding for touch', () => {
-      const { container } = render(
-        <Button>Touch Button</Button>
-      );
+      render(<Button>Touch Button</Button>);
 
       const button = screen.getByRole('button');
-      // Button should have padding classes for proper touch targets
       expect(button).toHaveClass(/px-|py-/);
     });
 
     it('inputs should have adequate padding for touch', () => {
-      const { container } = render(
-        <Input label="Test" />
-      );
+      const { container } = render(<Input label="Test" />);
 
       const input = container.querySelector('input');
-      // Input should have padding for proper touch targets
       expect(input).toHaveClass(/px-|py-/);
-    });
-  });
-
-  describe('Text readability', () => {
-    it('headings should be readable on all sizes', () => {
-      renderAppRoutes(['/login']);
-
-      const heading = screen.getByRole('heading', { name: /login/i });
-      expect(heading).toBeVisible();
-      expect(heading.textContent).toBeTruthy();
-    });
-
-    it('form labels should be readable', () => {
-      renderAppRoutes(['/login']);
-
-      const emailLabel = screen.getByText('Email');
-      const passwordLabel = screen.getByText('Password');
-
-      expect(emailLabel).toBeVisible();
-      expect(passwordLabel).toBeVisible();
-    });
-
-    it('text content should be visible', () => {
-      renderAppRoutes(['/login']);
-
-      const heading = screen.getByRole('heading', { name: /login/i });
-      expect(heading).toBeVisible();
     });
   });
 
   describe('Layout containers', () => {
     it('should have responsive max-width containers', () => {
-      const { container } = renderAppRoutes(['/login']);
+      const { container } = renderAppRoutes(['/decks']);
 
-      // Should have some max-width constraint
       const maxWidthEl = container.querySelector('[class*="max-w-"]');
       expect(maxWidthEl).toBeInTheDocument();
     });
 
     it('should have responsive padding', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      // Should have responsive padding
-      const paddedEl = container.querySelector('[class*="px-"]');
-      expect(paddedEl).toBeInTheDocument();
-    });
-
-    it('authenticated pages should have responsive layout', () => {
-      const mockUser: User = {
-        id: '1',
-        email: 'test@example.com',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
-      };
-      useAuthStore.getState().login('test-token', mockUser);
-
       const { container } = renderAppRoutes(['/decks']);
 
-      expect(screen.getByRole('heading', { name: /my decks/i })).toBeInTheDocument();
-      expect(container.querySelector('[class*="max-w-"]')).toBeInTheDocument();
-    });
-  });
-
-  describe('Form responsiveness', () => {
-    it('login form should adapt to viewport', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      const form = screen.getByRole('form');
-      expect(form).toBeInTheDocument();
-
-      const inputs = form.querySelectorAll('input');
-      expect(inputs.length).toBeGreaterThan(0);
-    });
-
-    it('register form should adapt to viewport', () => {
-      const { container } = renderAppRoutes(['/register']);
-
-      const form = screen.getByRole('form');
-      expect(form).toBeInTheDocument();
-
-      const inputs = form.querySelectorAll('input');
-      expect(inputs.length).toBeGreaterThan(0);
-    });
-
-    it('forms should be visible on all viewport sizes', () => {
-      renderAppRoutes(['/login']);
-
-      const form = screen.getByRole('form');
-      expect(form).toBeVisible();
+      const paddedEl = container.querySelector('[class*="px-"]');
+      expect(paddedEl).toBeInTheDocument();
     });
   });
 
   describe('Navigation responsiveness', () => {
     it('navigation should be present on all viewports', () => {
-      renderAppRoutes(['/login']);
+      renderAppRoutes(['/decks']);
 
       expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
 
-    it('logo should be accessible on all viewports', () => {
-      renderAppRoutes(['/login']);
-
-      const logo = screen.getByText('Mnemonic');
-      expect(logo).toHaveAttribute('href');
-    });
-
-    it('authenticated view should show logout option', () => {
-      const mockUser: User = {
-        id: '1',
-        email: 'test@example.com',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
-      };
-      useAuthStore.getState().login('test-token', mockUser);
-
+    it('decks link should be accessible on all viewports', () => {
       renderAppRoutes(['/decks']);
 
-      const logoutBtn = screen.getByRole('button', { name: /logout/i });
-      expect(logoutBtn).toBeInTheDocument();
+      const decksLink = screen.getByRole('link', { name: /decks/i });
+      expect(decksLink).toHaveAttribute('href');
     });
   });
 
   describe('No horizontal scroll', () => {
-    it('login page should not require horizontal scroll', () => {
-      const { container } = renderAppRoutes(['/login']);
-
-      const html = container.ownerDocument.documentElement;
-      // Should not need horizontal scrolling
-      expect(html).toBeInTheDocument();
-    });
-
-    it('register page should not require horizontal scroll', () => {
-      const { container } = renderAppRoutes(['/register']);
+    it('deck list page should not require horizontal scroll', () => {
+      const { container } = renderAppRoutes(['/decks']);
 
       const html = container.ownerDocument.documentElement;
       expect(html).toBeInTheDocument();

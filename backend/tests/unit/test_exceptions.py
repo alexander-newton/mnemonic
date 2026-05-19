@@ -12,6 +12,7 @@ from mnemonic.exceptions import (
     DeckNotFoundError,
     InvalidCardSyntaxError,
     InvalidRatingError,
+    LLMBudgetExceededError,
     LLMConfigError,
     LLMError,
     LLMRateLimitError,
@@ -559,3 +560,45 @@ class TestExceptionInstantiation:
         error = InvalidRatingError("Rating 5 is invalid")
         repr_str = repr(error)
         assert "InvalidRatingError" in repr_str or "Rating" in repr_str
+
+
+class TestNewExceptionHierarchy:
+    """Test the new Git, Vault, and LLM-budget exception classes."""
+
+    def test_llm_budget_exceeded_carries_amounts(self):
+        """Test that LLMBudgetExceededError carries budget amounts."""
+        err = LLMBudgetExceededError(
+            spent_millicents=2600, cap_millicents=2500, scope="daily"
+        )
+        assert err.spent_millicents == 2600
+        assert err.cap_millicents == 2500
+        assert err.scope == "daily"
+        assert "daily" in str(err)
+
+    def test_git_errors_subclass_mnemonic_error(self):
+        """Test that Git errors inherit from MnemonicError."""
+        from mnemonic.exceptions import (
+            GitDirtyWorkingTreeError,
+            GitNonFastForwardError,
+            GitPushRejectedError,
+            MnemonicError,
+        )
+
+        assert issubclass(GitDirtyWorkingTreeError, MnemonicError)
+        assert issubclass(GitNonFastForwardError, MnemonicError)
+        assert issubclass(GitPushRejectedError, MnemonicError)
+
+    def test_vault_errors_subclass_mnemonic_error(self):
+        """Test that Vault errors inherit from MnemonicError."""
+        from mnemonic.exceptions import (
+            MalformedNoteError,
+            MalformedVariationSectionError,
+            MnemonicError,
+            OrphanCardError,
+            VaultNotConfiguredError,
+        )
+
+        assert issubclass(VaultNotConfiguredError, MnemonicError)
+        assert issubclass(MalformedNoteError, MnemonicError)
+        assert issubclass(MalformedVariationSectionError, MnemonicError)
+        assert issubclass(OrphanCardError, MnemonicError)

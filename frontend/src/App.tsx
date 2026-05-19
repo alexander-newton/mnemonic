@@ -3,65 +3,46 @@
  * Initializes React Router, React Query, and global providers.
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './layouts/AppLayout';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
 import { DeckListPage } from './pages/DeckListPage';
 import { DeckDetailPage } from './pages/DeckDetailPage';
+import UsagePage from './pages/UsagePage';
+import SettingsPage from './pages/SettingsPage';
 
 /**
  * QueryClient configuration for React Query.
- * Disables automatic refetch on window focus for development.
  */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 /**
  * App is the root component that sets up routing and global providers.
  *
  * Routes structure:
- * - /login, /register - Public routes for authentication
- * - /decks, /decks/:id - Protected routes for authenticated users
- * - / - Redirects to /decks (authenticated) or /login (unauthenticated)
+ * - / - Redirects to /decks
+ * - /decks - Deck list page
+ * - /decks/:folder - Deck detail page
  *
  * @example
  * ```tsx
  * <App />
  * ```
  */
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
           <Route element={<AppLayout />}>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-
-            {/* Protected routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/decks" element={<DeckListPage />} />
-              <Route path="/decks/:id" element={<DeckDetailPage />} />
-              <Route index element={<Navigate to="/decks" replace />} />
-            </Route>
-
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/" element={<Navigate to="/decks" replace />} />
+            <Route path="/decks" element={<DeckListPage />} />
+            <Route path="/decks/:folder" element={<DeckDetailPage />} />
+            <Route path="/usage" element={<UsagePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );
 }
-
-export default App;

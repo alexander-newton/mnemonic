@@ -1,0 +1,13 @@
+---
+title: Nash equilibrium
+tags: [game-theory]
+---
+
+## Card
+
+A {{c1::Nash equilibrium}} is a strategy profile in which {{c1::no player can improve}} by deviating unilaterally.
+
+## Context
+
+Mutual best responses. Nash (1950) proved existence for any finite game.
+Compare with: dominant strategy equilibrium, correlated equilibrium.
