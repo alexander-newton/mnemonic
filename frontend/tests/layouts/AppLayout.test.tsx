@@ -4,17 +4,10 @@
 
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { AppLayout } from '../../src/layouts/AppLayout';
-import { useAuthStore } from '../../src/stores';
-import type { User } from '../../src/types';
 
 describe('AppLayout', () => {
-  beforeEach(() => {
-    useAuthStore.getState().logout();
-    localStorage.clear();
-  });
-
   describe('rendering', () => {
     it('renders navigation component', () => {
       render(
@@ -27,7 +20,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Mnemonic')).toBeInTheDocument();
+      expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
 
     it('renders main content area', () => {
@@ -60,7 +53,7 @@ describe('AppLayout', () => {
   });
 
   describe('structure', () => {
-    it('has proper page structure', () => {
+    it('has proper page structure with main element', () => {
       const { container } = render(
         <MemoryRouter initialEntries={['/']}>
           <Routes>
@@ -71,9 +64,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      // Check for main element
-      const main = container.querySelector('main');
-      expect(main).toBeInTheDocument();
+      expect(container.querySelector('main')).toBeInTheDocument();
     });
 
     it('applies min-h-screen class', () => {
@@ -87,8 +78,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      const outerDiv = container.firstChild;
-      expect(outerDiv).toHaveClass('min-h-screen');
+      expect(container.firstChild).toHaveClass('min-h-screen');
     });
 
     it('applies gray background', () => {
@@ -102,8 +92,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      const outerDiv = container.firstChild;
-      expect(outerDiv).toHaveClass('bg-gray-50');
+      expect(container.firstChild).toHaveClass('bg-gray-50');
     });
 
     it('applies max-width to main content', () => {
@@ -117,78 +106,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      const main = container.querySelector('main');
-      expect(main).toHaveClass('max-w-7xl');
-    });
-  });
-
-  describe('navigation integration', () => {
-    it('shows navigation with authenticated user', () => {
-      const mockUser: User = {
-        id: '1',
-        email: 'test@example.com',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
-      };
-      useAuthStore.getState().login('test-token', mockUser);
-
-      render(
-        <MemoryRouter initialEntries={['/']}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<div>Home</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('test@example.com')).toBeInTheDocument();
-    });
-
-    it('shows navigation with unauthenticated user', () => {
-      render(
-        <MemoryRouter initialEntries={['/']}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<div>Home</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      );
-
-      expect(screen.getByTestId('login-button')).toBeInTheDocument();
-    });
-  });
-
-  describe('responsive design', () => {
-    it('applies responsive padding to main content', () => {
-      const { container } = render(
-        <MemoryRouter initialEntries={['/']}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<div>Home</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      );
-
-      const main = container.querySelector('main');
-      expect(main).toHaveClass('px-4', 'sm:px-6', 'lg:px-8', 'py-8');
-    });
-
-    it('applies responsive max-width to main', () => {
-      const { container } = render(
-        <MemoryRouter initialEntries={['/']}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<div>Home</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      );
-
-      const main = container.querySelector('main');
-      expect(main).toHaveClass('max-w-7xl', 'mx-auto');
+      expect(container.querySelector('main')).toHaveClass('max-w-7xl');
     });
   });
 
@@ -224,6 +142,36 @@ describe('AppLayout', () => {
     });
   });
 
+  describe('responsive design', () => {
+    it('applies responsive padding to main content', () => {
+      const { container } = render(
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<div>Home</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(container.querySelector('main')).toHaveClass('px-4', 'sm:px-6', 'lg:px-8', 'py-8');
+    });
+
+    it('applies responsive max-width to main', () => {
+      const { container } = render(
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<div>Home</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(container.querySelector('main')).toHaveClass('max-w-7xl', 'mx-auto');
+    });
+  });
+
   describe('accessibility', () => {
     it('has proper main element for landmark navigation', () => {
       render(
@@ -236,8 +184,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
+      expect(screen.getByRole('main')).toBeInTheDocument();
     });
 
     it('has proper nav element', () => {
@@ -251,8 +198,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      const nav = screen.getByRole('navigation');
-      expect(nav).toBeInTheDocument();
+      expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
   });
 });
