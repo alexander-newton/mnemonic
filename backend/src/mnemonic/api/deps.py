@@ -1,78 +1,37 @@
-"""Dependency injection for FastAPI application.
+"""FastAPI dependency injection: VaultRepository + engine + services."""
 
-Provides common dependencies used across API endpoints such as database sessions
-and current user authentication.
-"""
+from __future__ import annotations
 
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer
-from sqlalchemy.orm import Session
+from functools import lru_cache
 
-from mnemonic.config import settings
-from mnemonic.db.models.user import User
-from mnemonic.db.repositories.user import UserRepository
-from mnemonic.services.auth import AuthService
+from sqlalchemy import Engine
 
-# HTTP Bearer scheme for JWT tokens
-http_bearer = HTTPBearer()
+from mnemonic.config import Config, load_config
+from mnemonic.db.sqlite import create_engine
+from mnemonic.services.card import CardService
+from mnemonic.services.deck import DeckService
+from mnemonic.vault.repository import VaultRepository
 
 
-def get_db() -> Session:
-    """Get a database session.
-
-    This is a placeholder that should be overridden with actual database
-    session management in the actual app implementation.
-
-    Yields:
-        SQLAlchemy Session for database operations.
-    """
-    # This will be implemented with actual database initialization
-    # For now, it's a placeholder for dependency injection
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    engine = create_engine(settings.database_url, echo=False)
-    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@lru_cache(maxsize=1)
+def get_config() -> Config:
+    return load_config()
 
 
-def get_current_user(
-    credentials: object = Depends(http_bearer),
-    session: Session = Depends(get_db),
-) -> User:
-    """Get the current authenticated user from JWT token.
+@lru_cache(maxsize=1)
+def get_engine() -> Engine:
+    cfg = get_config()
+    return create_engine(cfg.vault.path / ".mnemonic" / "state.sqlite")
 
-    Validates the JWT token from Authorization header and returns the
-    corresponding user from the database.
 
-    Args:
-        credentials: HTTP Bearer credentials from Authorization header.
-        session: Database session for user lookup.
+def get_repo() -> VaultRepository:
+    cfg = get_config()
+    return VaultRepository(vault_root=cfg.vault.path, engine=get_engine())
 
-    Returns:
-        User object for the authenticated user.
 
-    Raises:
-        HTTPException: If token is invalid, expired, or user not found (401).
-    """
-    # Extract token from credentials object
-    if not hasattr(credentials, "credentials"):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+def get_deck_service() -> DeckService:
+    return DeckService(repo=get_repo())
 
-    token = credentials.credentials
-    auth_service = AuthService(UserRepository())
 
-    # Verify token and get user_id
-    user_id = auth_service.verify_access_token(token)
-
-    # Fetch user from database
-    user_repo = UserRepository()
-    try:
-        user = user_repo.get(session, user_id)
-        return user
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="User not found") from e
+def get_card_service() -> CardService:
+    return CardService(repo=get_repo())
