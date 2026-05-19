@@ -79,3 +79,38 @@ def test_callout_multiline_answer():
 def test_callout_missing_q_or_a_raises():
     with pytest.raises(InvalidCardSyntaxError):
         extract_callout("> [!card]\n> only one line")
+
+
+def test_dispatcher_picks_cloze():
+    from mnemonic.vault.extractors import extract_card
+
+    card = extract_card("A {{c1::NE}} is stable.")
+    assert card.syntax == "cloze"
+
+
+def test_dispatcher_picks_highlight():
+    from mnemonic.vault.extractors import extract_card
+
+    card = extract_card("A ==NE== is stable.")
+    assert card.syntax == "highlight"
+
+
+def test_dispatcher_picks_callout():
+    from mnemonic.vault.extractors import extract_card
+
+    card = extract_card("> [!card]\n> **Q:** q?\n> **A:** a.")
+    assert card.syntax == "callout"
+
+
+def test_dispatcher_mixed_syntax_raises():
+    from mnemonic.vault.extractors import extract_card
+
+    with pytest.raises(InvalidCardSyntaxError):
+        extract_card("A {{c1::NE}} is ==stable==.")
+
+
+def test_dispatcher_no_syntax_raises():
+    from mnemonic.vault.extractors import extract_card
+
+    with pytest.raises(InvalidCardSyntaxError):
+        extract_card("plain text")
