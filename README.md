@@ -15,39 +15,92 @@ Mnemonic is a self-hosted, offline-first PWA designed for efficient learning. It
 - DSPy-optimized prompts for better LLM usage
 
 **Tech Stack:**
-- **Backend:** FastAPI, Python 3.11+, PostgreSQL 15+, Redis
+- **Backend:** FastAPI, Python 3.11+, SQLite sidecar
 - **Frontend:** React 18, TypeScript, Zustand, React Query
-- **LLM:** OpenRouter (configurable model)
+- **Storage:** Obsidian/Quarto vault (Git repo), `.mnemonic/state.sqlite`
+- **LLM:** Anthropic SDK with prompt caching (configurable model)
 - **Package Manager:** uv (Python), npm (Node)
 
 ## Prerequisites
 
-- Docker & Docker Compose 3.9+
-- Python 3.11+ (for local development)
-- Node.js 20+ (for frontend development)
-- PostgreSQL 15+ (if running locally without Docker)
-- Redis (if running locally without Docker)
+- Python 3.11+
+- Node.js 20+
+- Git (for vault initialization and syncing)
+- An Anthropic API key (`ANTHROPIC_API_KEY` environment variable)
 
-## Quick Start (Docker)
+## Quick Start
 
-The fastest way to get started is with Docker Compose:
+Mnemonic uses your Obsidian/Quarto vault (a Git repo) as primary storage.
+Application state lives in a SQLite sidecar (`.mnemonic/state.sqlite`) inside the vault.
+
+### 1. Create your global config
+
+Create `~/.config/mnemonic/config.toml`:
+
+```toml
+[vault]
+path   = "/path/to/your/vault"
+remote = "git@github.com:you/your-vault.git"
+branch = "main"
+watch  = false
+
+[llm]
+api_key_env       = "ANTHROPIC_API_KEY"
+model_default     = "claude-sonnet-4-6"
+model_rephrase    = "claude-haiku-4-5"
+model_offline     = "claude-opus-4-7"
+
+[llm.budget]
+daily_cents   = 25
+monthly_cents = 500
+
+[defaults]
+variation_enabled    = true
+variation_frequency  = 0.5
+leech_threshold      = 8
+daily_review_limit   = 50
+daily_new_limit      = 10
+```
+
+### 2. Set up your environment
 
 ```bash
-# Navigate to infrastructure directory
-cd infrastructure
+# Export your Anthropic API key
+export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Start all services
-docker-compose -f docker-compose.dev.yml up
+# Initialize or clone your vault
+# If new: use vault-cookiecutter or a blank git repo
+# If existing: git clone your vault
+git clone git@github.com:you/your-vault.git ~/path/to/vault
+```
 
-# In a new terminal, run database migrations
-docker-compose -f docker-compose.dev.yml exec backend uv run alembic upgrade head
+### 3. Run Mnemonic
+
+```bash
+# Backend
+cd backend
+uv sync
+uv run uvicorn mnemonic.main:app --reload
+
+# In a new terminal, run frontend
+cd frontend
+npm install
+npm run dev
 ```
 
 Services will be available at:
 - **Frontend:** http://localhost:5173
 - **API:** http://localhost:8000
-- **PostgreSQL:** localhost:5432
-- **Redis:** localhost:6379
+
+### 4. Start reviewing
+
+1. Open the frontend
+2. View your decks (each subfolder of the vault that contains a card-note becomes a deck)
+3. Start reviewing
+
+Each review session pulls the vault, scans for cards, lets you review, commits + pushes back at the end.
+
+**See `docs/source/adr/0001-vault-backed-storage.md` for the full design.**
 
 ## Local Development Setup
 
@@ -65,9 +118,6 @@ uv sync
 
 # Run tests
 uv run pytest
-
-# Run database migrations
-uv run alembic upgrade head
 
 # Start development server
 uv run uvicorn mnemonic.main:app --reload
@@ -106,80 +156,15 @@ make livehtml
 make linkcheck
 ```
 
-## Docker Compose Commands
-
-### Development Environment
-
-```bash
-cd infrastructure
-
-# Start all services
-docker-compose -f docker-compose.dev.yml up
-
-# Start specific services
-docker-compose -f docker-compose.dev.yml up postgres redis
-
-# View logs
-docker-compose -f docker-compose.dev.yml logs -f backend
-
-# Stop all services
-docker-compose -f docker-compose.dev.yml down
-
-# Reset database (WARNING: deletes all data)
-docker-compose -f docker-compose.dev.yml down -v
-```
-
-### Production Environment
-
-```bash
-cd infrastructure
-
-# Create .env file with required variables
-cat > .env << EOF
-POSTGRES_PASSWORD=<strong-password>
-REDIS_PASSWORD=<strong-password>
-OPENROUTER_API_KEY=<your-api-key>
-EOF
-
-# Start services
-docker-compose -f docker-compose.yml up -d
-
-# View logs
-docker-compose -f docker-compose.yml logs -f backend
-
-# Stop services
-docker-compose -f docker-compose.yml down
-```
-
 ## Configuration
 
-### Backend Configuration
+Mnemonic reads configuration from `~/.config/mnemonic/config.toml`. See **Quick Start** above for the full template.
 
-Create `backend/.env` with:
+**Required environment variables:**
+- `ANTHROPIC_API_KEY` - Your Anthropic API key
 
-```env
-# Database
-DATABASE_URL=postgresql://mnemonic:password@localhost:5432/mnemonic
-REDIS_URL=redis://localhost:6379/0
-
-# LLM
-OPENROUTER_API_KEY=your-api-key-here
-OPENROUTER_MODEL=openai/gpt-4
-
-# Server
-ENVIRONMENT=development
-DEBUG=true
-LOG_LEVEL=DEBUG
-```
-
-### Frontend Configuration
-
-Environment variables in `frontend/.env`:
-
-```env
-VITE_API_URL=http://localhost:8000
-VITE_LOG_LEVEL=debug
-```
+**Optional:**
+- `MNEMONIC_CONFIG_PATH` - Override default config location (default: `~/.config/mnemonic/config.toml`)
 
 ## Project Structure
 
