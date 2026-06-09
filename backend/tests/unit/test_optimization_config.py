@@ -53,3 +53,37 @@ def test_optimization_overrides_from_section(tmp_path):
     config = load_config(user_global_path=cfg_path)
     assert config.optimization.reward_decay_gamma == 0.7
     assert config.optimization.reward_window_k == 5
+
+
+def test_optimization_phase2_defaults(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    cfg_path = _write_config(tmp_path, vault)
+    config = load_config(user_global_path=cfg_path)
+    o = config.optimization
+    assert o.min_examples_to_compile == 20
+    assert o.optimizer == "bootstrap"
+    assert o.max_bootstrapped_demos == 4
+    assert o.max_labeled_demos == 8
+    assert o.val_fraction == 0.3
+    assert o.split_seed == 0
+    assert o.validity_min_pass_rate == 0.8
+    assert o.openrouter_key_env == "OPENROUTER_API_KEY"
+    assert o.openrouter_api_base == "https://openrouter.ai/api/v1"
+
+
+def test_optimization_phase2_overrides(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    extra = (
+        "[optimization]\n"
+        "min_examples_to_compile = 5\n"
+        'optimizer = "bootstrap"\n'
+        "max_bootstrapped_demos = 2\n"
+        'openrouter_key_env = "OR_KEY"\n'
+    )
+    cfg_path = _write_config(tmp_path, vault, extra)
+    o = load_config(user_global_path=cfg_path).optimization
+    assert o.min_examples_to_compile == 5
+    assert o.max_bootstrapped_demos == 2
+    assert o.openrouter_key_env == "OR_KEY"
