@@ -51,11 +51,15 @@ def _subsequent_reviews(
     config: OptimizationConfig,
 ) -> list[SubsequentReview]:
     """Build the FSRS-adjusted subsequent-review list for a card."""
-    rows = session.execute(
-        select(ReviewLog)
-        .where(ReviewLog.card_id == card_id, ReviewLog.review_time > anchor_time)
-        .order_by(ReviewLog.review_time.asc())
-    ).scalars().all()
+    rows = (
+        session.execute(
+            select(ReviewLog)
+            .where(ReviewLog.card_id == card_id, ReviewLog.review_time > anchor_time)
+            .order_by(ReviewLog.review_time.asc())
+        )
+        .scalars()
+        .all()
+    )
 
     result: list[SubsequentReview] = []
     prev_time = anchor_time
@@ -67,12 +71,8 @@ def _subsequent_reviews(
             prev_time = row.review_time
             continue
         elapsed_days = (row.review_time - prev_time).total_seconds() / 86400.0
-        r_pred = calculate_retrievability(
-            stability=row.stability_before, elapsed_days=elapsed_days
-        )
-        result.append(
-            SubsequentReview(success=row.rating >= 2, predicted_retrievability=r_pred)
-        )
+        r_pred = calculate_retrievability(stability=row.stability_before, elapsed_days=elapsed_days)
+        result.append(SubsequentReview(success=row.rating >= 2, predicted_retrievability=r_pred))
         prev_time = row.review_time
     return result
 
@@ -94,9 +94,13 @@ def run_labeling_job(engine: Engine, config: OptimizationConfig) -> LabelingRepo
     labeled = pending = finalized_skipped = 0
 
     with session_scope(engine) as session:
-        examples = session.execute(
-            select(TrainingExample).where(TrainingExample.variation_id.is_not(None))
-        ).scalars().all()
+        examples = (
+            session.execute(
+                select(TrainingExample).where(TrainingExample.variation_id.is_not(None))
+            )
+            .scalars()
+            .all()
+        )
 
         for example in examples:
             if example.finalized:
@@ -136,6 +140,4 @@ def run_labeling_job(engine: Engine, config: OptimizationConfig) -> LabelingRepo
             )
             labeled += 1
 
-    return LabelingReport(
-        labeled=labeled, pending=pending, finalized_skipped=finalized_skipped
-    )
+    return LabelingReport(labeled=labeled, pending=pending, finalized_skipped=finalized_skipped)

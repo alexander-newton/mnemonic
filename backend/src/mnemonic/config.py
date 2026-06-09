@@ -92,8 +92,7 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
     vault_path_str = user_data.get("vault", {}).get("path", "")
     if not vault_path_str:
         raise VaultNotConfiguredError(
-            "[vault] path is missing in config. "
-            f"Set vault.path in {user_path}."
+            "[vault] path is missing in config. " f"Set vault.path in {user_path}."
         )
     vault_path = Path(vault_path_str)
 

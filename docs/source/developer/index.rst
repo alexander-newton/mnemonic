@@ -5,6 +5,7 @@ Developer Documentation
    :maxdepth: 2
 
    migrations
+   prompt-optimization
 
 Setup
 -----
