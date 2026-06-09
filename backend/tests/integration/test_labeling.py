@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from mnemonic.config import OptimizationConfig
+from mnemonic.core.fsrs.algorithm import calculate_retrievability
 from mnemonic.core.optimization.labeling import run_labeling_job
 from mnemonic.db.models import (
     Base,
@@ -160,3 +162,30 @@ def test_job_is_idempotent_on_finalized_examples():
         second = run_labeling_job(engine, OptimizationConfig())
         assert second.labeled == 0
         assert second.finalized_skipped == 1
+
+
+def test_cram_skip_then_eligible_measures_elapsed_from_actual_previous_review():
+    # anchor at t0; a crammed review 10h later (excluded from the window but it
+    # really happened and advances the clock); then an eligible review 5 days
+    # after the cram. The eligible review's elapsed_days must be measured from
+    # the cram (5.0 days), NOT from the anchor (~5.42 days), because its
+    # stability_before reflects the crammed review's update.
+    engine = _engine()
+    t0 = datetime(2026, 6, 1, 9, 0)
+    cram_time = t0 + timedelta(hours=10)
+    eligible_time = cram_time + timedelta(days=5)
+    with Session(engine) as s:
+        s.add(_unlabeled_example())
+        s.add(_review("c1", "v1", t0, rating=3, stability_before=10.0))
+        s.add(_review("c1", None, cram_time, rating=3, stability_before=10.0))
+        s.add(_review("c1", None, eligible_time, rating=3, stability_before=10.0))
+        s.commit()
+
+        run_labeling_job(engine, OptimizationConfig(min_interval_hours=20.0))
+
+        te = s.get(TrainingExample, "te-v1")
+        # Only the eligible review contributes (cram excluded).
+        assert te.maturity == 1
+        expected_r = calculate_retrievability(stability=10.0, elapsed_days=5.0)
+        expected_reward = 1.0 - expected_r
+        assert math.isclose(te.reward, expected_reward, rel_tol=1e-9)

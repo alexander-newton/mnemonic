@@ -17,17 +17,10 @@ class RewardConfig:
     Attributes:
         gamma: Geometric decay applied to each later review (0 < gamma <= 1).
         window_k: Maximum number of subsequent reviews to consider.
-        min_interval_hours: Reviews closer than this to their predecessor are
-            excluded upstream (same-session cramming); unused here but kept for
-            documentation alongside the other reward parameters.
-        demo_margin_delta: Reward above which an example is marked demo-worthy
-            (used by the labeling job, not by compute_reward).
     """
 
     gamma: float = 0.5
     window_k: int = 3
-    min_interval_hours: float = 20.0
-    demo_margin_delta: float = 0.1
 
 
 @dataclass(frozen=True)

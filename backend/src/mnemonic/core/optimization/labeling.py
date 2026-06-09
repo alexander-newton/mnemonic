@@ -18,6 +18,9 @@ from mnemonic.core.optimization.reward import (
 from mnemonic.db.models import ReviewLog, SchedulingState, TrainingExample
 from mnemonic.db.sqlite import session_scope
 
+# A review rating >= 2 counts as a successful recall (1 = "again"/lapse).
+MIN_SUCCESS_RATING = 2
+
 
 @dataclass(frozen=True)
 class LabelingReport:
@@ -38,8 +41,6 @@ def _to_reward_config(config: OptimizationConfig) -> RewardConfig:
     return RewardConfig(
         gamma=config.reward_decay_gamma,
         window_k=config.reward_window_k,
-        min_interval_hours=config.min_interval_hours,
-        demo_margin_delta=config.demo_margin_delta,
     )
 
 
@@ -50,7 +51,13 @@ def _subsequent_reviews(
     anchor_time: datetime,
     config: OptimizationConfig,
 ) -> list[SubsequentReview]:
-    """Build the FSRS-adjusted subsequent-review list for a card."""
+    """Build the FSRS-adjusted subsequent-review list for a card.
+
+    ``elapsed_days`` and the same-session-cram gap are both measured from the
+    card's actual immediately-preceding review (which set the current
+    ``stability_before``), so the clock advances on every review even when the
+    review itself is excluded from the reward window.
+    """
     rows = (
         session.execute(
             select(ReviewLog)
@@ -62,18 +69,23 @@ def _subsequent_reviews(
     )
 
     result: list[SubsequentReview] = []
-    prev_time = anchor_time
+    last_review_time = anchor_time
     for row in rows:
-        gap_hours = (row.review_time - prev_time).total_seconds() / 3600.0
-        if gap_hours < config.min_interval_hours:
-            continue
-        if not row.stability_before or row.stability_before <= 0:
-            prev_time = row.review_time
-            continue
-        elapsed_days = (row.review_time - prev_time).total_seconds() / 86400.0
-        r_pred = calculate_retrievability(stability=row.stability_before, elapsed_days=elapsed_days)
-        result.append(SubsequentReview(success=row.rating >= 2, predicted_retrievability=r_pred))
-        prev_time = row.review_time
+        gap_hours = (row.review_time - last_review_time).total_seconds() / 3600.0
+        elapsed_days = (row.review_time - last_review_time).total_seconds() / 86400.0
+        is_cram = gap_hours < config.min_interval_hours
+        stability_usable = bool(row.stability_before) and row.stability_before > 0
+        if not is_cram and stability_usable:
+            r_pred = calculate_retrievability(
+                stability=row.stability_before, elapsed_days=elapsed_days
+            )
+            result.append(
+                SubsequentReview(
+                    success=row.rating >= MIN_SUCCESS_RATING,
+                    predicted_retrievability=r_pred,
+                )
+            )
+        last_review_time = row.review_time
     return result
 
 

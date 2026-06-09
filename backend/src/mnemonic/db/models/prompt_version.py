@@ -14,7 +14,7 @@ class PromptVersion(Base):
     __tablename__ = "prompt_version"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    strategy: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    strategy: Mapped[str] = mapped_column(String, nullable=False)
     version_no: Mapped[int] = mapped_column(Integer, nullable=False)
     instruction_text: Mapped[str] = mapped_column(Text, nullable=False)
     demos: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
