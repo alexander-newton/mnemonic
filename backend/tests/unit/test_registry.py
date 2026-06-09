@@ -38,3 +38,29 @@ def test_prompt_version_persists_with_defaults():
         assert row.version_no == 0
         assert row.status == "champion"
         assert row.demos == "[]"
+
+
+def test_variation_meta_has_prompt_version_and_arm():
+    from mnemonic.db.models import VariationMeta
+
+    engine = _memory_engine()
+    with Session(engine) as s:
+        s.add(
+            VariationMeta(
+                id="vm1",
+                card_id="c1",
+                strategy="rephrase",
+                model="claude",
+                generated_at=datetime(2026, 6, 9, 12, 0, 0),
+                shown_count=1,
+                helpful_count=0,
+                content_hash="abc",
+                note_path="note.md",
+                prompt_version_id="pv1",
+                arm="champion",
+            )
+        )
+        s.commit()
+        row = s.get(VariationMeta, "vm1")
+        assert row.prompt_version_id == "pv1"
+        assert row.arm == "champion"
