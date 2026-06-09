@@ -7,7 +7,7 @@ Loads from ~/.config/mnemonic/config.toml (user-global) overlaid by
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from mnemonic.exceptions import VaultNotConfiguredError
@@ -46,10 +46,19 @@ class DefaultsConfig:
 
 
 @dataclass(frozen=True)
+class OptimizationConfig:
+    reward_decay_gamma: float = 0.5
+    reward_window_k: int = 3
+    min_interval_hours: float = 20.0
+    demo_margin_delta: float = 0.1
+
+
+@dataclass(frozen=True)
 class Config:
     vault: VaultConfig
     llm: LLMConfig
     defaults: DefaultsConfig
+    optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -83,8 +92,7 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
     vault_path_str = user_data.get("vault", {}).get("path", "")
     if not vault_path_str:
         raise VaultNotConfiguredError(
-            "[vault] path is missing in config. "
-            f"Set vault.path in {user_path}."
+            "[vault] path is missing in config. " f"Set vault.path in {user_path}."
         )
     vault_path = Path(vault_path_str)
 
@@ -99,6 +107,13 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
     llm_section = merged["llm"]
     budget_section = llm_section["budget"]
     defaults_section = merged["defaults"]
+    opt_section = merged.get("optimization", {})
+    optimization = OptimizationConfig(
+        reward_decay_gamma=opt_section.get("reward_decay_gamma", 0.5),
+        reward_window_k=opt_section.get("reward_window_k", 3),
+        min_interval_hours=opt_section.get("min_interval_hours", 20.0),
+        demo_margin_delta=opt_section.get("demo_margin_delta", 0.1),
+    )
 
     return Config(
         vault=VaultConfig(
@@ -124,4 +139,5 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
             daily_review_limit=defaults_section["daily_review_limit"],
             daily_new_limit=defaults_section["daily_new_limit"],
         ),
+        optimization=optimization,
     )

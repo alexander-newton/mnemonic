@@ -40,6 +40,9 @@ dependencies = [
     "pypandoc>=1.11.0",
 ]
 
+[project.scripts]
+mnemonic-label = "mnemonic.cli.label:main"
+
 [project.optional-dependencies]
 dev = [
     # Testing

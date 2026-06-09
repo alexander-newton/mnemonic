@@ -179,3 +179,31 @@ class OrphanCardError(VaultError):
     """A SchedulingState row has no corresponding card-note."""
 
     pass
+
+
+# Optimization errors
+class OptimizationError(MnemonicError):
+    """Base class for prompt-optimization failures."""
+
+    pass
+
+
+class InsufficientDataError(OptimizationError):
+    """Not enough labeled examples to perform an optimization step."""
+
+    def __init__(self, strategy: str, have: int, need: int) -> None:
+        """Initialize insufficient-data error.
+
+        Args:
+            strategy: The strategy whose trainset is too small.
+            have: Number of usable examples currently available.
+            need: Minimum number of examples required.
+        """
+        self.strategy = strategy
+        self.have = have
+        self.need = need
+        super().__init__(
+            f"Not enough labeled examples for strategy '{strategy}': "
+            f"have {have}, need {need}. Keep reviewing to accumulate more, "
+            "or lower min_examples_to_compile in [optimization] config."
+        )

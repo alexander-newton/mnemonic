@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Any
 
 from sqlalchemy import Engine, event
 from sqlalchemy import create_engine as _create_engine
@@ -30,7 +31,7 @@ def create_engine(db_path: Path) -> Engine:
     )
 
     @event.listens_for(engine, "connect")
-    def _set_pragmas(dbapi_conn, _):
+    def _set_pragmas(dbapi_conn: Any, _: object) -> None:
         """Set SQLite pragmas on each connection: WAL mode and foreign keys."""
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA journal_mode=WAL")

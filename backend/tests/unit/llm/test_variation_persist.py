@@ -70,6 +70,9 @@ def test_persist_variation_writes_llm_usage_row(engine, note_path, vault_root):
         card_id="card-aabbccdd",
         variation=variation,
         vault_root=vault_root,
+        prompt_version_id="pv-test",
+        base_q="What is a term?",
+        base_a="A concept.",
     )
 
     with session_scope(engine) as s:
@@ -97,6 +100,9 @@ def test_persist_variation_still_writes_variation_meta(engine, note_path, vault_
         card_id="card-aabbccdd",
         variation=variation,
         vault_root=vault_root,
+        prompt_version_id="pv-test",
+        base_q="What is a term?",
+        base_a="A concept.",
     )
 
     with session_scope(engine) as s:
@@ -125,6 +131,9 @@ def test_persist_variation_purpose_contains_strategy(engine, note_path, vault_ro
             card_id=f"card-{strategy}",
             variation=variation,
             vault_root=vault_root,
+            prompt_version_id="pv-test",
+            base_q="What is a term?",
+            base_a="A concept.",
         )
 
     with session_scope(engine) as s:

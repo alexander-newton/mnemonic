@@ -22,3 +22,5 @@ class VariationMeta(Base):
     helpful_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     content_hash: Mapped[str] = mapped_column(String, nullable=False)
     note_path: Mapped[str] = mapped_column(String, nullable=False)
+    prompt_version_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    arm: Mapped[str] = mapped_column(String, nullable=False, default="none")
