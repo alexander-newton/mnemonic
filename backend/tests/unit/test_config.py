@@ -53,3 +53,32 @@ def test_missing_vault_path_raises(tmp_path: Path):
     )
     with pytest.raises(VaultNotConfiguredError):
         load_config(user_global_path=user_cfg)
+
+
+def test_llm_api_base_defaults_to_openrouter(tmp_path: Path):
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        '[vault]\npath = "/tmp/v"\nbranch = "main"\nwatch = false\n'
+        '[llm]\napi_key_env = "OPENROUTER_API_KEY"\nmodel_default = "anthropic/claude-sonnet-4"\n'
+        'model_rephrase = "anthropic/claude-3.5-haiku"\nmodel_offline = "openrouter/anthropic/claude-3.5-haiku"\n'
+        '[llm.budget]\ndaily_cents = 25\nmonthly_cents = 500\n'
+        '[defaults]\nvariation_enabled = true\nvariation_frequency = 0.5\n'
+        'leech_threshold = 8\ndaily_review_limit = 50\ndaily_new_limit = 10\n'
+    )
+    cfg = load_config(user_global_path=cfg_path)
+    assert cfg.llm.api_base == "https://openrouter.ai/api"
+
+
+def test_llm_api_base_override(tmp_path: Path):
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        '[vault]\npath = "/tmp/v"\nbranch = "main"\nwatch = false\n'
+        '[llm]\napi_key_env = "OPENROUTER_API_KEY"\nmodel_default = "anthropic/claude-sonnet-4"\n'
+        'model_rephrase = "anthropic/claude-3.5-haiku"\nmodel_offline = "openrouter/anthropic/claude-3.5-haiku"\n'
+        'api_base = "https://openrouter.ai/api"\n'
+        '[llm.budget]\ndaily_cents = 25\nmonthly_cents = 500\n'
+        '[defaults]\nvariation_enabled = true\nvariation_frequency = 0.5\n'
+        'leech_threshold = 8\ndaily_review_limit = 50\ndaily_new_limit = 10\n'
+    )
+    cfg = load_config(user_global_path=cfg_path)
+    assert cfg.llm.api_base == "https://openrouter.ai/api"
