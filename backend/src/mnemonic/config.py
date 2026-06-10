@@ -51,6 +51,15 @@ class OptimizationConfig:
     reward_window_k: int = 3
     min_interval_hours: float = 20.0
     demo_margin_delta: float = 0.1
+    min_examples_to_compile: int = 20
+    optimizer: str = "bootstrap"
+    max_bootstrapped_demos: int = 4
+    max_labeled_demos: int = 8
+    val_fraction: float = 0.3
+    split_seed: int = 0
+    validity_min_pass_rate: float = 0.8
+    openrouter_key_env: str = "OPENROUTER_API_KEY"
+    openrouter_api_base: str = "https://openrouter.ai/api/v1"
 
 
 @dataclass(frozen=True)
@@ -113,6 +122,17 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
         reward_window_k=opt_section.get("reward_window_k", 3),
         min_interval_hours=opt_section.get("min_interval_hours", 20.0),
         demo_margin_delta=opt_section.get("demo_margin_delta", 0.1),
+        min_examples_to_compile=opt_section.get("min_examples_to_compile", 20),
+        optimizer=opt_section.get("optimizer", "bootstrap"),
+        max_bootstrapped_demos=opt_section.get("max_bootstrapped_demos", 4),
+        max_labeled_demos=opt_section.get("max_labeled_demos", 8),
+        val_fraction=opt_section.get("val_fraction", 0.3),
+        split_seed=opt_section.get("split_seed", 0),
+        validity_min_pass_rate=opt_section.get("validity_min_pass_rate", 0.8),
+        openrouter_key_env=opt_section.get("openrouter_key_env", "OPENROUTER_API_KEY"),
+        openrouter_api_base=opt_section.get(
+            "openrouter_api_base", "https://openrouter.ai/api/v1"
+        ),
     )
 
     return Config(

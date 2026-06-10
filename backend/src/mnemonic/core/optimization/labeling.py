@@ -74,11 +74,10 @@ def _subsequent_reviews(
         gap_hours = (row.review_time - last_review_time).total_seconds() / 3600.0
         elapsed_days = (row.review_time - last_review_time).total_seconds() / 86400.0
         is_cram = gap_hours < config.min_interval_hours
-        stability_usable = bool(row.stability_before) and row.stability_before > 0
-        if not is_cram and stability_usable:
-            r_pred = calculate_retrievability(
-                stability=row.stability_before, elapsed_days=elapsed_days
-            )
+        stability_before: float | None = row.stability_before
+        stability_usable = stability_before is not None and stability_before > 0
+        if not is_cram and stability_usable and stability_before is not None:
+            r_pred = calculate_retrievability(stability=stability_before, elapsed_days=elapsed_days)
             result.append(
                 SubsequentReview(
                     success=row.rating >= MIN_SUCCESS_RATING,
