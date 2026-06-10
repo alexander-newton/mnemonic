@@ -21,20 +21,41 @@ def _engine():
 
 
 def _champion(s, strategy="rephrase", pv_id="pv-r"):
-    s.add(PromptVersion(
-        id=pv_id, strategy=strategy, version_no=0, instruction_text="seed",
-        demos="[]", status="champion", parent_version_id=None,
-        compiled_from_n_examples=None, created_at=datetime(2026, 6, 1),
-    ))
+    s.add(
+        PromptVersion(
+            id=pv_id,
+            strategy=strategy,
+            version_no=0,
+            instruction_text="seed",
+            demos="[]",
+            status="champion",
+            parent_version_id=None,
+            compiled_from_n_examples=None,
+            created_at=datetime(2026, 6, 1),
+        )
+    )
 
 
 def _example(s, i, pv_id="pv-r", finalized=True, reward=0.5):
-    s.add(TrainingExample(
-        id=f"te{i}", card_id=f"c{i}", variation_id=f"v{i}", prompt_version_id=pv_id,
-        base_q=f"bq{i}", base_a=f"ba{i}", variation_q=f"vq{i}", variation_a=f"va{i}",
-        label=1, reward=reward, maturity=3, finalized=finalized, rating=None,
-        note_context=f"ctx{i}", created_at=datetime(2026, 6, 1),
-    ))
+    s.add(
+        TrainingExample(
+            id=f"te{i}",
+            card_id=f"c{i}",
+            variation_id=f"v{i}",
+            prompt_version_id=pv_id,
+            base_q=f"bq{i}",
+            base_a=f"ba{i}",
+            variation_q=f"vq{i}",
+            variation_a=f"va{i}",
+            label=1,
+            reward=reward,
+            maturity=3,
+            finalized=finalized,
+            rating=None,
+            note_context=f"ctx{i}",
+            created_at=datetime(2026, 6, 1),
+        )
+    )
 
 
 def test_build_trainset_filters_by_strategy_and_finalized():
@@ -44,8 +65,8 @@ def test_build_trainset_filters_by_strategy_and_finalized():
         _champion(s, "specialize", "pv-s")
         for i in range(3):
             _example(s, i, "pv-r", finalized=True)
-        _example(s, 99, "pv-r", finalized=False)       # excluded: not finalized
-        _example(s, 100, "pv-s", finalized=True)        # excluded: other strategy
+        _example(s, 99, "pv-r", finalized=False)  # excluded: not finalized
+        _example(s, 100, "pv-s", finalized=True)  # excluded: other strategy
         s.commit()
         cfg = OptimizationConfig(min_examples_to_compile=1)
         train = build_trainset(s, strategy="rephrase", config=cfg)
@@ -78,3 +99,33 @@ def test_split_is_deterministic_for_a_seed():
     assert len(a_val) == 3 and len(a_train) == 7
     c_train, c_val = split_examples(items, val_fraction=0.3, seed=1)
     assert sorted(c_train + c_val) == items
+
+
+def test_build_trainset_excludes_null_reward():
+    engine = _engine()
+    with Session(engine) as s:
+        _champion(s, "rephrase", "pv-r")
+        _example(s, 0, "pv-r", finalized=True, reward=0.5)
+        s.add(
+            TrainingExample(
+                id="tenull",
+                card_id="cnull",
+                variation_id="vnull",
+                prompt_version_id="pv-r",
+                base_q="bq",
+                base_a="ba",
+                variation_q="vq",
+                variation_a="va",
+                label=0,
+                reward=None,
+                maturity=1,
+                finalized=True,
+                rating=None,
+                note_context="ctx",
+                created_at=datetime(2026, 6, 1),
+            )
+        )
+        s.commit()
+        cfg = OptimizationConfig(min_examples_to_compile=1)
+        train = build_trainset(s, strategy="rephrase", config=cfg)
+        assert len(train) == 1  # null-reward row excluded

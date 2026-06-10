@@ -33,7 +33,7 @@ def _run_validity_gate(
     program: VariationModule, val: list[dspy.Example], min_pass_rate: float
 ) -> None:
     """Raise OptimizationError if too few val predictions are valid."""
-    if not val:
+    if not val:  # pragma: no cover - defensive; callers pass a non-empty split
         return
     valid = 0
     for example in val:
@@ -104,26 +104,20 @@ def compile_challenger(
     )
     compiled = optimizer.compile(student, trainset=train)
 
-    _run_validity_gate(compiled, val, config.validity_min_pass_rate)
+    # Always run the validity gate on a non-empty split: fall back to the train
+    # set if the validation split floored to empty (small trainset + low
+    # val_fraction) so the safety gate is never silently skipped.
+    validity_error: OptimizationError | None = None
+    try:
+        _run_validity_gate(compiled, val or train, config.validity_min_pass_rate)
+    except OptimizationError as exc:
+        validity_error = exc
 
-    demos_state = compiled.predict.dump_state().get("demos", [])
-    challenger_id = uuid.uuid4().hex
+    # Record spend FIRST so cost is never dropped, even when the gate rejects the
+    # challenger (NO SILENT FAILURES on cost accounting). harvest_usage runs after
+    # the gate so it also captures the gate's own LM calls.
     totals = harvest_usage(lm.history)
-
     with session_scope(engine) as session:
-        session.add(
-            PromptVersion(
-                id=challenger_id,
-                strategy=strategy,
-                version_no=version_no,
-                instruction_text=compiled.predict.signature.instructions,
-                demos=json.dumps(demos_state),
-                status="challenger",
-                parent_version_id=champion_id,
-                compiled_from_n_examples=len(examples),
-                created_at=now,
-            )
-        )
         session.add(
             LLMUsage(
                 id=uuid.uuid4().hex,
@@ -139,11 +133,21 @@ def compile_challenger(
             )
         )
 
+    if validity_error is not None:
+        raise validity_error
+
+    demos_state = compiled.predict.dump_state().get("demos", [])
+    challenger = PromptVersion(
+        id=uuid.uuid4().hex,
+        strategy=strategy,
+        version_no=version_no,
+        instruction_text=compiled.predict.signature.instructions,
+        demos=json.dumps(demos_state),
+        status="challenger",
+        parent_version_id=champion_id,
+        compiled_from_n_examples=len(examples),
+        created_at=now,
+    )
     with session_scope(engine) as session:
-        challenger = session.get(PromptVersion, challenger_id)
-        if challenger is None:
-            raise OptimizationError(
-                f"Challenger row {challenger_id!r} not found immediately after insert "
-                "(unexpected database error)."
-            )
-        return challenger
+        session.add(challenger)
+    return challenger
