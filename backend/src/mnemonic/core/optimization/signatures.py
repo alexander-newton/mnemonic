@@ -8,6 +8,8 @@ intentionally not part of the optimized signature/demos.
 
 from __future__ import annotations
 
+from typing import cast
+
 import dspy
 
 _SIGNATURE_SPEC = "base_q, base_a, note_context -> question, answer"
@@ -23,7 +25,7 @@ def make_variation_signature(instruction_text: str) -> type[dspy.Signature]:
         A dspy.Signature class with base_q/base_a/note_context inputs and
         question/answer outputs.
     """
-    return dspy.Signature(_SIGNATURE_SPEC, instruction_text)
+    return cast(type[dspy.Signature], dspy.Signature(_SIGNATURE_SPEC, instruction_text))
 
 
 class VariationModule(dspy.Module):

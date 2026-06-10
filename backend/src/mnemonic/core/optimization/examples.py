@@ -34,24 +34,27 @@ def build_trainset(
         InsufficientDataError: If fewer than ``min_examples_to_compile`` rows
             qualify.
     """
-    rows = session.execute(
-        select(TrainingExample)
-        .join(PromptVersion, TrainingExample.prompt_version_id == PromptVersion.id)
-        .where(
-            PromptVersion.strategy == strategy,
-            TrainingExample.finalized.is_(True),
-            TrainingExample.reward.is_not(None),
+    rows = (
+        session.execute(
+            select(TrainingExample)
+            .join(PromptVersion, TrainingExample.prompt_version_id == PromptVersion.id)
+            .where(
+                PromptVersion.strategy == strategy,
+                TrainingExample.finalized.is_(True),
+                TrainingExample.reward.is_not(None),
+            )
+            .order_by(TrainingExample.created_at.asc(), TrainingExample.id.asc())
         )
-        .order_by(TrainingExample.created_at.asc(), TrainingExample.id.asc())
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if len(rows) < config.min_examples_to_compile:
-        raise InsufficientDataError(
-            strategy, have=len(rows), need=config.min_examples_to_compile
-        )
+        raise InsufficientDataError(strategy, have=len(rows), need=config.min_examples_to_compile)
 
     examples: list[dspy.Example] = []
     for row in rows:
+        assert row.reward is not None  # guaranteed by the query filter above
         examples.append(
             dspy.Example(
                 base_q=row.base_q,
@@ -65,9 +68,7 @@ def build_trainset(
     return examples
 
 
-def split_examples(
-    items: list[T], *, val_fraction: float, seed: int
-) -> tuple[list[T], list[T]]:
+def split_examples(items: list[T], *, val_fraction: float, seed: int) -> tuple[list[T], list[T]]:
     """Deterministically shuffle and split items into (train, val).
 
     Args:

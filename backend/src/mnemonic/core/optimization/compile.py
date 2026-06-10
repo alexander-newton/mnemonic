@@ -24,9 +24,7 @@ from mnemonic.exceptions import OptimizationError
 
 def _next_version_no(session: Session, strategy: str) -> int:
     current = session.execute(
-        select(func.max(PromptVersion.version_no)).where(
-            PromptVersion.strategy == strategy
-        )
+        select(func.max(PromptVersion.version_no)).where(PromptVersion.strategy == strategy)
     ).scalar_one_or_none()
     return (current or 0) + 1
 
@@ -83,8 +81,7 @@ def compile_challenger(
     """
     if config.optimizer != "bootstrap":
         raise OptimizationError(
-            f"Unsupported optimizer '{config.optimizer}'. Phase 2 implements "
-            "only 'bootstrap'."
+            f"Unsupported optimizer '{config.optimizer}'. Phase 2 implements " "only 'bootstrap'."
         )
 
     dspy.configure(lm=lm)
@@ -96,9 +93,7 @@ def compile_challenger(
         examples = build_trainset(session, strategy=strategy, config=config)
         version_no = _next_version_no(session, strategy)
 
-    train, val = split_examples(
-        examples, val_fraction=config.val_fraction, seed=config.split_seed
-    )
+    train, val = split_examples(examples, val_fraction=config.val_fraction, seed=config.split_seed)
 
     student = VariationModule(make_variation_signature(instruction))
     optimizer = BootstrapFewShot(
@@ -116,29 +111,39 @@ def compile_challenger(
     totals = harvest_usage(lm.history)
 
     with session_scope(engine) as session:
-        session.add(PromptVersion(
-            id=challenger_id,
-            strategy=strategy,
-            version_no=version_no,
-            instruction_text=compiled.predict.signature.instructions,
-            demos=json.dumps(demos_state),
-            status="challenger",
-            parent_version_id=champion_id,
-            compiled_from_n_examples=len(examples),
-            created_at=now,
-        ))
-        session.add(LLMUsage(
-            id=uuid.uuid4().hex,
-            timestamp=now,
-            model=getattr(lm, "model", "unknown"),
-            purpose=f"optimize:{strategy}",
-            input_tokens=totals.input_tokens,
-            output_tokens=totals.output_tokens,
-            cache_read_tokens=0,
-            cache_creation_tokens=0,
-            cost_millicents=totals.cost_millicents,
-            card_id=None,
-        ))
+        session.add(
+            PromptVersion(
+                id=challenger_id,
+                strategy=strategy,
+                version_no=version_no,
+                instruction_text=compiled.predict.signature.instructions,
+                demos=json.dumps(demos_state),
+                status="challenger",
+                parent_version_id=champion_id,
+                compiled_from_n_examples=len(examples),
+                created_at=now,
+            )
+        )
+        session.add(
+            LLMUsage(
+                id=uuid.uuid4().hex,
+                timestamp=now,
+                model=getattr(lm, "model", "unknown"),
+                purpose=f"optimize:{strategy}",
+                input_tokens=totals.input_tokens,
+                output_tokens=totals.output_tokens,
+                cache_read_tokens=0,
+                cache_creation_tokens=0,
+                cost_millicents=totals.cost_millicents,
+                card_id=None,
+            )
+        )
 
     with session_scope(engine) as session:
-        return session.get(PromptVersion, challenger_id)
+        challenger = session.get(PromptVersion, challenger_id)
+        if challenger is None:
+            raise OptimizationError(
+                f"Challenger row {challenger_id!r} not found immediately after insert "
+                "(unexpected database error)."
+            )
+        return challenger
