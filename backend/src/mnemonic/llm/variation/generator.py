@@ -153,5 +153,5 @@ class VariationGenerator:
         q_line = next((line for line in lines if line.startswith("Q:")), None)
         a_line = next((line for line in lines if line.startswith("A:")), None)
         if q_line is None or a_line is None:
-            raise LLMError("LLM did not return parseable Q:/A: blocks. " f"Got: {text[:200]!r}")
+            raise LLMError(f"LLM did not return parseable Q:/A: blocks. Got: {text[:200]!r}")
         return q_line[2:].strip(), a_line[2:].strip()

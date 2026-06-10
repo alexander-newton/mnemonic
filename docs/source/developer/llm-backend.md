@@ -34,3 +34,8 @@ model drops the field, so the backend parses the raw JSON via
 These differ because they use different client libraries. Set `[llm]`
 `model_default`/`model_rephrase` as bare slugs and `model_offline` as the
 `openrouter/`-prefixed form (it feeds the DSPy compile path).
+
+> **Status:** This backend is foundational — it is not yet constructed by a
+> runtime composition root, and `[llm] api_base` / `api_key_env` are not yet
+> plumbed into it. Wiring (passing `config.llm.api_base` and
+> `config.llm.api_key_env` into `OpenRouterBackend`) is a follow-up.
