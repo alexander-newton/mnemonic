@@ -1,5 +1,4 @@
-from mnemonic.llm.cache import build_cached_system, EPHEMERAL_1H, EPHEMERAL_5M
-from mnemonic.llm.client import Block
+from mnemonic.llm.cache import EPHEMERAL_1H, EPHEMERAL_5M, build_cached_system
 
 
 def test_three_cached_blocks():

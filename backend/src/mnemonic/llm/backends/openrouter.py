@@ -10,9 +10,11 @@ JSON.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any, cast
 
 import anthropic
 
@@ -106,15 +108,13 @@ class OpenRouterBackend:
             LLMError: API status error, or response missing ``usage.cost``.
         """
         client = self._client()
-        sdk_messages = [
-            {"role": m.role, "content": _to_sdk_blocks(m.blocks)} for m in messages
-        ]
+        sdk_messages = [{"role": m.role, "content": _to_sdk_blocks(m.blocks)} for m in messages]
         try:
             raw = client.messages.with_raw_response.create(
                 model=model,
                 max_tokens=max_tokens,
-                system=_to_sdk_blocks(system),
-                messages=sdk_messages,
+                system=cast(Any, _to_sdk_blocks(system)),
+                messages=cast(Any, sdk_messages),
                 stop_sequences=list(stop_sequences),
             )
         except anthropic.AuthenticationError as e:
@@ -123,10 +123,8 @@ class OpenRouterBackend:
             ) from e
         except anthropic.RateLimitError as e:
             retry = 30
-            try:
+            with contextlib.suppress(Exception):
                 retry = int(e.response.headers.get("retry-after", 30))
-            except Exception:
-                pass
             raise LLMRateLimitError(
                 f"OpenRouter rate limit hit. Retry in {retry}s, or reduce variation_frequency.",
                 retry_after=retry,
@@ -141,9 +139,7 @@ class OpenRouterBackend:
 
         data = json.loads(raw.text)
         text = "".join(
-            part.get("text", "")
-            for part in data.get("content", [])
-            if part.get("type") == "text"
+            part.get("text", "") for part in data.get("content", []) if part.get("type") == "text"
         )
         usage = data.get("usage") or {}
         cost_usd = usage.get("cost")

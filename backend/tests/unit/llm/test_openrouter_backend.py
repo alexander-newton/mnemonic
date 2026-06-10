@@ -8,8 +8,9 @@ from mnemonic.llm.backends.openrouter import OpenRouterBackend
 from mnemonic.llm.client import Block, Message
 
 
-def _raw(text="result", cost=3.44e-05, input_tokens=18, output_tokens=5,
-         cache_read=0, cache_creation=0):
+def _raw(
+    text="result", cost=3.44e-05, input_tokens=18, output_tokens=5, cache_read=0, cache_creation=0
+):
     usage = {
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
@@ -29,7 +30,7 @@ def _raw(text="result", cost=3.44e-05, input_tokens=18, output_tokens=5,
 def _backend_with(fake_client, monkeypatch, key="sk-or-x"):
     monkeypatch.setattr(
         "mnemonic.llm.backends.openrouter._make_sdk_client",
-        lambda api_key, base_url: fake_client,
+        lambda _api_key, _base_url: fake_client,
     )
     monkeypatch.setenv("OPENROUTER_API_KEY", key)
     return OpenRouterBackend()

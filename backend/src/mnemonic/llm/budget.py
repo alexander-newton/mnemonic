@@ -36,9 +36,11 @@ class BudgetGuard:
             Total cost in millicents since the given time.
         """
         with session_scope(self.engine) as s:
-            total = s.query(func.coalesce(func.sum(LLMUsage.cost_millicents), 0)).filter(
-                LLMUsage.timestamp >= since
-            ).scalar()
+            total = (
+                s.query(func.coalesce(func.sum(LLMUsage.cost_millicents), 0))
+                .filter(LLMUsage.timestamp >= since)
+                .scalar()
+            )
             return int(total or 0)
 
     def assert_within_budget(self) -> None:
