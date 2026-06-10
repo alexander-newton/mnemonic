@@ -24,3 +24,11 @@ def test_completion_carries_usage():
 def test_llm_client_is_protocol():
     # LLMClient is a Protocol; should have the typing.Protocol marker
     assert getattr(LLMClient, "_is_protocol", False) is True or issubclass(LLMClient, Protocol)
+
+
+def test_batch_types_removed():
+    import mnemonic.llm.client as c
+
+    assert not hasattr(c, "BatchRequest")
+    assert not hasattr(c, "BatchHandle")
+    assert not hasattr(c.LLMClient, "submit_batch")
