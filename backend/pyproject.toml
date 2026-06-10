@@ -42,6 +42,7 @@ dependencies = [
 
 [project.scripts]
 mnemonic-label = "mnemonic.cli.label:main"
+mnemonic-optimize = "mnemonic.cli.optimize:main"
 
 [project.optional-dependencies]
 dev = [
