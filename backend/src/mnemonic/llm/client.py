@@ -7,8 +7,9 @@ without rewriting consumers.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -41,20 +42,6 @@ class Completion:
     model: str
 
 
-@dataclass(frozen=True)
-class BatchRequest:
-    custom_id: str
-    system: list[Block]
-    messages: list[Message]
-    max_tokens: int
-    stop_sequences: Sequence[str] = ()
-
-
-@dataclass(frozen=True)
-class BatchHandle:
-    batch_id: str
-
-
 class LLMClient(Protocol):
     def generate(
         self,
@@ -65,5 +52,3 @@ class LLMClient(Protocol):
         max_tokens: int,
         stop_sequences: Sequence[str] = (),
     ) -> Completion: ...
-
-    def submit_batch(self, requests: Sequence[BatchRequest], *, model: str) -> BatchHandle: ...

@@ -44,18 +44,18 @@ def vault_root(tmp_path: Path) -> Path:
 
 
 def _make_variation(**kwargs) -> GeneratedVariation:
-    defaults = dict(
-        strategy="rephrase",
-        question="What is a term?",
-        answer="A concept.",
-        model="claude-haiku-4-5",
-        cost_millicents=42,
-        raw_response="Q: What is a term?\nA: A concept.",
-        input_tokens=100,
-        output_tokens=20,
-        cache_read_tokens=10,
-        cache_creation_tokens=5,
-    )
+    defaults = {
+        "strategy": "rephrase",
+        "question": "What is a term?",
+        "answer": "A concept.",
+        "model": "claude-haiku-4-5",
+        "cost_millicents": 42,
+        "raw_response": "Q: What is a term?\nA: A concept.",
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_read_tokens": 10,
+        "cache_creation_tokens": 5,
+    }
     defaults.update(kwargs)
     return GeneratedVariation(**defaults)
 

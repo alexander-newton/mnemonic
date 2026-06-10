@@ -34,6 +34,7 @@ class LLMConfig:
     model_rephrase: str
     model_offline: str
     budget: BudgetConfig
+    api_base: str = "https://openrouter.ai/api"
 
 
 @dataclass(frozen=True)
@@ -151,6 +152,7 @@ def load_config(*, user_global_path: Path | None = None) -> Config:
                 daily_cents=budget_section["daily_cents"],
                 monthly_cents=budget_section["monthly_cents"],
             ),
+            api_base=llm_section.get("api_base", "https://openrouter.ai/api"),
         ),
         defaults=DefaultsConfig(
             variation_enabled=defaults_section["variation_enabled"],

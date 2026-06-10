@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+
 import pytest
+
 from mnemonic.db.models import Base, LLMUsage
 from mnemonic.db.sqlite import create_engine, session_scope
 from mnemonic.exceptions import LLMBudgetExceededError
@@ -9,10 +11,17 @@ from mnemonic.llm.budget import BudgetGuard
 
 def _seed(engine, ts: datetime, cost: int):
     with session_scope(engine) as s:
-        s.add(LLMUsage(
-            id=f"u-{ts.isoformat()}", timestamp=ts, model="m", purpose="p",
-            input_tokens=0, output_tokens=0, cost_millicents=cost,
-        ))
+        s.add(
+            LLMUsage(
+                id=f"u-{ts.isoformat()}",
+                timestamp=ts,
+                model="m",
+                purpose="p",
+                input_tokens=0,
+                output_tokens=0,
+                cost_millicents=cost,
+            )
+        )
 
 
 def test_under_budget_allows(tmp_path: Path):
