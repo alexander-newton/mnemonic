@@ -1,37 +1,53 @@
 # Mnemonic
 
-An adaptive spaced repetition system with LLM-powered question variations.
+An adaptive spaced-repetition system with LLM-powered question variations, backed by your own Markdown vault.
 
 ## Overview
 
-Mnemonic is a self-hosted, offline-first PWA designed for efficient learning. It combines the FSRS (Free Spaced Repetition Scheduler) algorithm with OpenRouter's LLM capabilities to automatically generate question variations, helping you learn smarter.
+Mnemonic is a self-hosted, offline-first learning tool. It schedules reviews with the **FSRS** algorithm and uses an LLM (via **OpenRouter**) to generate fresh *variations* of your cards — re-phrasings and related questions that test the same concept differently, so you learn the idea rather than memorising one exact wording.
 
-**Key Features:**
-- Spaced repetition using FSRS algorithm
-- LLM-powered question variation generation
-- Leech detection and card decomposition
-- Offline-first PWA with IndexedDB
-- Support for Markdown, cloze deletions, and math notation
-- DSPy-optimized prompts for better LLM usage
+Your cards live in an **Obsidian/Quarto vault** (an ordinary Git repository). Mnemonic never owns your content: it reads the vault, tracks scheduling state in a small SQLite sidecar, and commits changes back to Git.
 
-**Tech Stack:**
-- **Backend:** FastAPI, Python 3.11+, SQLite sidecar
-- **Frontend:** React 18, TypeScript, Zustand, React Query
-- **Storage:** Obsidian/Quarto vault (Git repo), `.mnemonic/state.sqlite`
-- **LLM:** Anthropic SDK with prompt caching (configurable model)
-- **Package Manager:** uv (Python), npm (Node)
+A distinctive piece is the **outcome-driven prompt optimizer**: Mnemonic records how well each generated variation actually helped you remember (an FSRS-adjusted reward), then uses **DSPy** to compile better variation prompts from that signal.
+
+**Key features**
+
+- Spaced repetition with the FSRS scheduler
+- LLM-generated question variations (rephrase / specialize / generalize) via OpenRouter, with prompt caching
+- Outcome-driven prompt optimization (DSPy) that learns from your review history
+- Leech detection
+- Vault-backed storage — Markdown + Git, with a SQLite sidecar for state
+- Markdown, cloze deletions, and math (MathJax) support
+- Offline-first PWA frontend (IndexedDB)
+
+> **Status:** Under active development. The vault/review/scheduling core, the OpenRouter backend, and the prompt-optimization pipeline (Phases 1–2) are implemented and tested; some pieces (e.g. wiring variation generation into the live review loop, Phase 3 champion/challenger promotion) are in progress.
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | FastAPI, Python 3.11+, SQLAlchemy |
+| Python env | **uv** |
+| Storage | Obsidian/Quarto vault (Git) + `.mnemonic/state.sqlite` (SQLite) |
+| LLM (runtime) | OpenRouter via the `anthropic` SDK (Anthropic-Messages endpoint), with prompt caching |
+| LLM (optimization) | DSPy + litellm → OpenRouter |
+| Frontend | React 18, TypeScript, Zustand, React Query, IndexedDB (Dexie) |
+| Rendering | Pandoc, MathJax |
+| Docs | Sphinx |
+| Testing | pytest, Vitest, Playwright |
+
+All LLM traffic goes through **OpenRouter** — there is no direct-provider key path.
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 20+
-- Git (for vault initialization and syncing)
-- An Anthropic API key (`ANTHROPIC_API_KEY` environment variable)
+- Git (the vault is a Git repo)
+- An **OpenRouter** API key (https://openrouter.ai) exported as `OPENROUTER_API_KEY`
 
-## Quick Start
+## Quick start
 
-Mnemonic uses your Obsidian/Quarto vault (a Git repo) as primary storage.
-Application state lives in a SQLite sidecar (`.mnemonic/state.sqlite`) inside the vault.
+Mnemonic uses your vault (a Git repo) as primary storage; application state lives in `.mnemonic/state.sqlite` inside the vault.
 
 ### 1. Create your global config
 
@@ -45,33 +61,39 @@ branch = "main"
 watch  = false
 
 [llm]
-api_key_env       = "ANTHROPIC_API_KEY"
-model_default     = "claude-sonnet-4-6"
-model_rephrase    = "claude-haiku-4-5"
-model_offline     = "claude-opus-4-7"
+api_key_env   = "OPENROUTER_API_KEY"
+# Runtime backend uses bare OpenRouter slugs (anthropic SDK -> /v1/messages).
+# Pick real slugs from https://openrouter.ai/models
+model_default  = "anthropic/claude-3.5-sonnet"
+model_rephrase = "anthropic/claude-3.5-haiku"
+# The offline DSPy optimizer uses the litellm "openrouter/"-prefixed form.
+model_offline  = "openrouter/anthropic/claude-3.5-haiku"
+# api_base defaults to https://openrouter.ai/api; override only if needed.
 
 [llm.budget]
 daily_cents   = 25
 monthly_cents = 500
 
 [defaults]
-variation_enabled    = true
-variation_frequency  = 0.5
-leech_threshold      = 8
-daily_review_limit   = 50
-daily_new_limit      = 10
+variation_enabled   = true
+variation_frequency = 0.5
+leech_threshold     = 8
+daily_review_limit  = 50
+daily_new_limit     = 10
 ```
+
+> **Model-slug conventions** (they differ by client library):
+> - **Runtime backend** (anthropic SDK): bare slugs, e.g. `anthropic/claude-3.5-haiku`.
+> - **DSPy optimizer** (litellm): `openrouter/`-prefixed, e.g. `openrouter/anthropic/claude-3.5-haiku`.
 
 ### 2. Set up your environment
 
 ```bash
-# Export your Anthropic API key
-export ANTHROPIC_API_KEY="sk-ant-..."
+# OpenRouter API key (the only required secret)
+export OPENROUTER_API_KEY="sk-or-v1-..."
 
-# Initialize or clone your vault
-# If new: use vault-cookiecutter or a blank git repo
-# If existing: git clone your vault
-git clone git@github.com:you/your-vault.git ~/path/to/vault
+# Clone (or create) your vault
+git clone git@github.com:you/your-vault.git /path/to/your/vault
 ```
 
 ### 3. Run Mnemonic
@@ -82,276 +104,107 @@ cd backend
 uv sync
 uv run uvicorn mnemonic.main:app --reload
 
-# In a new terminal, run frontend
+# Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-Services will be available at:
 - **Frontend:** http://localhost:5173
-- **API:** http://localhost:8000
+- **API:** http://localhost:8000 (docs at `/docs`)
 
-### 4. Start reviewing
+### 4. Review
 
-1. Open the frontend
-2. View your decks (each subfolder of the vault that contains a card-note becomes a deck)
-3. Start reviewing
+Open the frontend and start a session. Each subfolder of the vault that contains a card-note becomes a deck. A session pulls the vault, scans for cards, lets you review, and commits + pushes the updated state at the end.
 
-Each review session pulls the vault, scans for cards, lets you review, commits + pushes back at the end.
+See `docs/source/adr/0001-vault-backed-storage.md` for the storage design.
 
-**See `docs/source/adr/0001-vault-backed-storage.md` for the full design.**
+## Prompt optimization
 
-## Local Development Setup
-
-### Backend Setup
+Mnemonic can improve its own variation prompts from your review outcomes. This runs as offline CLI jobs (installed by `uv sync`):
 
 ```bash
-cd backend
+# Phase 1 — label variations with an FSRS-adjusted "did this build memory" reward
+uv run mnemonic-label
 
-# Create virtual environment (using uv)
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-uv sync
-
-# Run tests
-uv run pytest
-
-# Start development server
-uv run uvicorn mnemonic.main:app --reload
+# Phase 2 — compile a challenger prompt for a strategy from the labeled data (DSPy)
+uv run mnemonic-optimize rephrase      # or: specialize | generalize
 ```
 
-### Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Run tests
-npm test
-
-# Run E2E tests
-npm run test:e2e
-```
-
-### Documentation Setup
-
-```bash
-cd docs
-
-# Build HTML documentation
-make html
-
-# Live rebuild on changes
-make livehtml
-
-# Check for broken links
-make linkcheck
-```
+`mnemonic-label` seeds champion prompts from the on-disk strategy files and computes rewards as later reviews land. `mnemonic-optimize` uses DSPy `BootstrapFewShot` to compile a versioned **challenger** prompt, talking to OpenRouter and recording exact in-band cost. See `docs/source/developer/prompt-optimization.md` and `docs/source/developer/llm-backend.md`.
 
 ## Configuration
 
-Mnemonic reads configuration from `~/.config/mnemonic/config.toml`. See **Quick Start** above for the full template.
+Config is read from `~/.config/mnemonic/config.toml` (user-global), optionally overlaid by `<vault>/.mnemonic/config.toml` (vault-local wins per key). See **Quick start** for the full template.
 
-**Required environment variables:**
-- `ANTHROPIC_API_KEY` - Your Anthropic API key
+- **Required env:** `OPENROUTER_API_KEY` (name configurable via `[llm] api_key_env`).
+- `[optimization]` is an optional section with tuning knobs for the reward/compile pipeline (see `docs/source/developer/prompt-optimization.md`).
 
-**Optional:**
-- `MNEMONIC_CONFIG_PATH` - Override default config location (default: `~/.config/mnemonic/config.toml`)
-
-## Project Structure
+## Project structure
 
 ```
 mnemonic/
-├── backend/                    # FastAPI backend
+├── backend/
 │   ├── src/mnemonic/
-│   │   ├── api/               # HTTP routes and middleware
-│   │   ├── core/              # Business logic (95% test coverage)
-│   │   ├── llm/               # LLM integration
-│   │   ├── db/                # Database models and repositories
-│   │   ├── services/          # Application services
-│   │   └── exceptions.py      # Custom exceptions
-│   ├── tests/                 # Unit, integration, E2E tests
-│   ├── alembic/               # Database migrations
-│   ├── Dockerfile
-│   └── pyproject.toml         # uv dependencies
+│   │   ├── api/                # FastAPI routes, deps, middleware
+│   │   ├── core/               # Business logic (FSRS, optimization) — high coverage
+│   │   │   ├── fsrs/           # FSRS scheduler
+│   │   │   └── optimization/   # Reward, labeling, DSPy compile, registry
+│   │   ├── llm/                # OpenRouter backend, prompts, variation, DSPy LM
+│   │   │   └── backends/openrouter.py
+│   │   ├── vault/              # Vault scan/parse/inject, Git ops, session
+│   │   ├── db/                 # SQLAlchemy models, repositories, SQLite engine
+│   │   ├── services/           # Application services
+│   │   ├── cli/                # mnemonic-label, mnemonic-optimize
+│   │   └── exceptions.py
+│   ├── alembic/                # SQLite migrations
+│   ├── tests/                  # unit / integration / e2e
+│   └── pyproject.toml          # uv dependencies + console scripts
 │
-├── frontend/                   # React + TypeScript frontend
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   ├── pages/             # Route pages
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── stores/            # Zustand state
-│   │   ├── services/          # API client, IndexedDB
-│   │   ├── types/             # TypeScript types
-│   │   └── utils/
-│   ├── tests/
-│   ├── Dockerfile
-│   └── package.json
+├── frontend/                   # React + TypeScript PWA
+│   └── src/                    # components, pages, hooks, stores, services
 │
-├── docs/                       # Sphinx documentation
-│   ├── source/
-│   │   ├── user-guide/        # End-user docs
-│   │   ├── developer/         # Developer docs
-│   │   ├── api/               # API reference
-│   │   └── adr/               # Architecture decisions
-│   └── Makefile
-│
-├── infrastructure/             # Docker & deployment configs
-│   ├── docker-compose.yml     # Production
-│   └── docker-compose.dev.yml # Development
-│
-├── scripts/                    # Utility scripts
-├── .github/workflows/          # CI/CD pipelines
+├── docs/                       # Sphinx docs (user-guide, developer, adr) + specs/plans
+├── infrastructure/             # docker-compose files
+├── scripts/                    # setup-dev.sh
 ├── CLAUDE.md                   # Development guidelines
-└── README.md                   # This file
+└── README.md
 ```
 
-## Development Workflow
-
-### Code Quality Standards
-
-This project follows strict quality guidelines:
-
-1. **No Silent Failures** - All errors must be informative and propagate to the user
-2. **Test-Driven Development (TDD)** - Tests written before implementation
-3. **Code Review Checklist** - Style, security, function size, type hints
-4. **Test Verification** - Coverage thresholds, edge cases, determinism
-5. **Documentation** - Docstrings, Sphinx docs, user guides, ADRs
-
-### Running Tests
+## Development
 
 ```bash
 # Backend
 cd backend
-uv run pytest                              # All tests
-uv run pytest --cov=mnemonic              # With coverage
-uv run pytest tests/unit/                  # Unit tests only
-uv run pytest -k "test_fsrs"               # Pattern matching
+uv sync --extra dev
+uv run pytest                         # all tests
+uv run pytest --cov=mnemonic          # with coverage
+uv run pytest -k test_fsrs            # pattern match
+uv run black src tests                # format
+uv run ruff check --fix src tests     # lint
+uv run mypy src                       # type check
 
-# Frontend
-cd frontend
-npm test                                   # All tests
-npm run test:coverage                      # With coverage
-npm run test:e2e                           # E2E tests
-```
-
-### Code Formatting
-
-```bash
-# Backend
-cd backend
-uv run black src tests                     # Format
-uv run ruff check --fix src tests          # Lint
-uv run mypy src                            # Type check
-
-# Frontend
-cd frontend
-npm run format                             # Format with Prettier
-npm run lint:fix                           # ESLint
-```
-
-### Database Migrations
-
-```bash
-cd backend
-
-# Create new migration
+# Database migrations
+uv run alembic upgrade head
 uv run alembic revision --autogenerate -m "description"
 
-# Apply migrations
-uv run alembic upgrade head
-
-# Rollback last migration
-uv run alembic downgrade -1
-
-# View current revision
-uv run alembic current
-```
-
-## API Documentation
-
-API documentation is available at:
-- **Interactive Docs:** http://localhost:8000/docs (Swagger)
-- **Alternative Docs:** http://localhost:8000/redoc (ReDoc)
-- **OpenAPI Schema:** http://localhost:8000/openapi.json
-
-## Contributing
-
-See [CLAUDE.md](./CLAUDE.md) for detailed development guidelines including:
-- Commit message conventions
-- Pull request checklist
-- Architecture decision records (ADR)
-- Testing requirements
-
-## Troubleshooting
-
-### Docker Issues
-
-**Port already in use:**
-```bash
-# Check what's using the port
-lsof -i :8000
-
-# Use different port in docker-compose.dev.yml
-# Change "8000:8000" to "8001:8000"
-```
-
-**Database connection failed:**
-```bash
-# Check if PostgreSQL is healthy
-docker-compose -f infrastructure/docker-compose.dev.yml ps
-
-# View PostgreSQL logs
-docker-compose -f infrastructure/docker-compose.dev.yml logs postgres
-
-# Reset database
-docker-compose -f infrastructure/docker-compose.dev.yml down -v
-docker-compose -f infrastructure/docker-compose.dev.yml up postgres
-```
-
-**Backend won't start:**
-```bash
-# Check logs
-docker-compose -f infrastructure/docker-compose.dev.yml logs backend
-
-# Rebuild image
-docker-compose -f infrastructure/docker-compose.dev.yml up --build backend
-```
-
-### Local Development Issues
-
-**uv sync fails:**
-```bash
-# Update uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clear cache and resync
-rm -rf .uv/
-uv sync
-```
-
-**npm install fails:**
-```bash
-# Clear npm cache
-npm cache clean --force
-
-# Delete node_modules and reinstall
-rm -rf node_modules package-lock.json
+# Frontend
+cd frontend
 npm install
+npm test                              # unit (Vitest)
+npm run test:e2e                      # Playwright
+npm run lint:fix && npm run format
+
+# Docs
+cd docs && make html
 ```
+
+This project follows strict guidelines (see [CLAUDE.md](./CLAUDE.md)): **no silent failures**, **TDD**, small functions, full type hints, and coverage thresholds (backend `core/` ≥ 95%).
 
 ## License
 
-TBD
+MIT.
 
 ## Support
 
-For issues, questions, or feedback, please open an issue on GitHub or refer to [CLAUDE.md](./CLAUDE.md) for development guidelines.
+Open an issue on GitHub. For development conventions, architecture decisions, and the contribution checklist, see [CLAUDE.md](./CLAUDE.md).
