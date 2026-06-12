@@ -8,6 +8,7 @@ from pathlib import Path
 from mnemonic.db.models import (
     Base,
     CoreChangeLog,
+    ReviewLog,
     SchedulingState,
     TrainingExample,
     VariationMeta,
@@ -139,6 +140,68 @@ def test_duplicate_cards_detected(tmp_path: Path):
 
     assert len(report.duplicates) == 1
     assert len(report.duplicates[0].card_ids) == 2
+
+
+def test_cloze_structure_edit_flags_and_invalidates(tmp_path: Path):
+    vault = _vault(tmp_path)
+    path = _write_card(vault, "mito", "The {{c1::mitochondria}} is the powerhouse.")
+    engine = _engine(vault)
+    ReconciliationService(vault, engine).run()
+    card_id = _only_card_id(engine)
+    _seed_variation(engine, card_id)
+    _set_fsrs(engine, card_id, stability=30.0, reps=4)
+
+    # renumber the cloze: normalized text is identical, cloze signature changes
+    path.write_text(path.read_text().replace("{{c1::mitochondria}}", "{{c2::mitochondria}}"))
+    report = ReconciliationService(vault, engine).run()
+
+    assert report.counts["cloze_structure"] == 1
+    with session_scope(engine) as s:
+        row = s.get(SchedulingState, card_id)
+        assert bool(row.core_changed) is True
+        assert row.stability == 30.0 and row.reps == 4  # FSRS untouched
+        assert s.query(VariationMeta).one().invalidated_at is not None
+
+
+def test_dangling_variation_invalidated(tmp_path: Path):
+    vault = _vault(tmp_path)
+    path = _write_card(vault, "gone", "A {{c1::card}} that will be deleted.")
+    engine = _engine(vault)
+    ReconciliationService(vault, engine).run()
+    card_id = _only_card_id(engine)
+    _seed_variation(engine, card_id)
+
+    path.unlink()  # note removed from vault -> card_id no longer live
+    report = ReconciliationService(vault, engine).run()
+
+    assert report.dangling.variations == [card_id]
+    with session_scope(engine) as s:
+        assert s.query(VariationMeta).one().invalidated_at is not None
+
+
+def test_dangling_review_log_reported_not_mutated(tmp_path: Path):
+    vault = _vault(tmp_path)
+    path = _write_card(vault, "gone", "Another {{c1::card}} to delete.")
+    engine = _engine(vault)
+    ReconciliationService(vault, engine).run()
+    card_id = _only_card_id(engine)
+    with session_scope(engine) as s:
+        s.add(
+            ReviewLog(
+                id="rl1",
+                card_id=card_id,
+                rating=3,
+                response_time_ms=1000,
+                review_time=datetime(2026, 6, 1),
+            )
+        )
+
+    path.unlink()
+    report = ReconciliationService(vault, engine).run()
+
+    assert report.dangling.review_logs == [card_id]
+    with session_scope(engine) as s:
+        assert s.get(ReviewLog, "rl1") is not None  # reported only, never deleted
 
 
 # --- helpers ---
