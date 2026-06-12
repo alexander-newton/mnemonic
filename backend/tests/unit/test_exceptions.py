@@ -602,3 +602,11 @@ class TestNewExceptionHierarchy:
         assert issubclass(MalformedNoteError, MnemonicError)
         assert issubclass(MalformedVariationSectionError, MnemonicError)
         assert issubclass(OrphanCardError, MnemonicError)
+
+
+def test_integrity_error_is_mnemonic_error():
+    from mnemonic.exceptions import IntegrityError, MnemonicError
+
+    err = IntegrityError("empty core body")
+    assert isinstance(err, MnemonicError)
+    assert str(err) == "empty core body"

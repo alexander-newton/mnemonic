@@ -51,6 +51,13 @@ class InvalidCardSyntaxError(ValidationError):
     pass
 
 
+# Integrity errors
+class IntegrityError(MnemonicError):
+    """Card content integrity check failed (e.g. an un-hashable empty core)."""
+
+    pass
+
+
 # LLM errors
 class LLMError(MnemonicError):
     """Base class for LLM-related errors."""

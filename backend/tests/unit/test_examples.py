@@ -129,3 +129,22 @@ def test_build_trainset_excludes_null_reward():
         cfg = OptimizationConfig(min_examples_to_compile=1)
         train = build_trainset(s, strategy="rephrase", config=cfg)
         assert len(train) == 1  # null-reward row excluded
+
+
+def test_build_trainset_excludes_invalidated():
+    from datetime import datetime as _dt
+
+    engine = _engine()
+    with Session(engine) as s:
+        _champion(s, "rephrase", "pv-r")
+        _example(s, 0, "pv-r", finalized=True, reward=0.5)
+        _example(s, 1, "pv-r", finalized=True, reward=0.5)
+        s.commit()
+        # invalidate one example
+        from mnemonic.db.models import TrainingExample
+
+        s.get(TrainingExample, "te1").invalidated_at = _dt(2026, 6, 11)
+        s.commit()
+        cfg = OptimizationConfig(min_examples_to_compile=1)
+        train = build_trainset(s, strategy="rephrase", config=cfg)
+        assert len(train) == 1  # invalidated row excluded
