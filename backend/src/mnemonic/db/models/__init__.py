@@ -1,6 +1,7 @@
 """SQLite ORM models for Mnemonic application state."""
 
 from mnemonic.db.models.base import Base
+from mnemonic.db.models.core_change_log import CoreChangeLog
 from mnemonic.db.models.llm_usage import LLMUsage
 from mnemonic.db.models.prompt_version import PromptVersion
 from mnemonic.db.models.review_log import ReviewLog
@@ -10,6 +11,7 @@ from mnemonic.db.models.variation_meta import VariationMeta
 
 __all__ = [
     "Base",
+    "CoreChangeLog",
     "LLMUsage",
     "PromptVersion",
     "ReviewLog",

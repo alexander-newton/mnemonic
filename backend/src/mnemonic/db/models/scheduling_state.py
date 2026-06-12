@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from mnemonic.db.models.base import Base
@@ -25,6 +25,11 @@ class SchedulingState(Base):
     suspended: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)
     parent_card_id: Mapped[str | None] = mapped_column(String, nullable=True)
     orphan: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)
+    core_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    core_hash_normalized: Mapped[str | None] = mapped_column(String, nullable=True)
+    cloze_signature: Mapped[str | None] = mapped_column(String, nullable=True)
+    core_changed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    core_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp(), nullable=False
     )
