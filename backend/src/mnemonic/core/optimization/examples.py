@@ -42,6 +42,7 @@ def build_trainset(
                 PromptVersion.strategy == strategy,
                 TrainingExample.finalized.is_(True),
                 TrainingExample.reward.is_not(None),
+                TrainingExample.invalidated_at.is_(None),
             )
             .order_by(TrainingExample.created_at.asc(), TrainingExample.id.asc())
         )
