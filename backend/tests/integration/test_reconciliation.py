@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from mnemonic.db.models import (
     Base,
     CoreChangeLog,
@@ -14,7 +16,9 @@ from mnemonic.db.models import (
     VariationMeta,
 )
 from mnemonic.db.sqlite import create_engine, session_scope
+from mnemonic.exceptions import IntegrityError
 from mnemonic.services.reconciliation import ReconciliationService
+from mnemonic.vault.scanner import ScannedCard
 
 
 def _vault(tmp_path: Path) -> Path:
@@ -202,6 +206,28 @@ def test_dangling_review_log_reported_not_mutated(tmp_path: Path):
     assert report.dangling.review_logs == [card_id]
     with session_scope(engine) as s:
         assert s.get(ReviewLog, "rl1") is not None  # reported only, never deleted
+
+
+def test_empty_core_raises_with_card_id_and_path(tmp_path: Path):
+    # Defensive guard: the scanner skips empty cards, but if an empty body ever
+    # reaches the service it must fail loudly with identifying context.
+    service = ReconciliationService(tmp_path, engine=None)  # type: ignore[arg-type]
+    scanned = ScannedCard(
+        card_id="card-empty",
+        note_path=tmp_path / "broken.qmd",
+        deck_folder=tmp_path,
+        deck_config=None,
+        syntax="cloze",
+        front="",
+        back="   ^card-empty  ",
+        title="broken",
+        frontmatter={},
+    )
+    with pytest.raises(IntegrityError) as ei:
+        service._hash_card(scanned)
+    message = str(ei.value)
+    assert "card-empty" in message
+    assert "broken.qmd" in message
 
 
 # --- helpers ---
