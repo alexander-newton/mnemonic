@@ -10,6 +10,7 @@ from mnemonic.config import Config, load_config
 from mnemonic.db.sqlite import create_engine
 from mnemonic.services.card import CardService
 from mnemonic.services.deck import DeckService
+from mnemonic.services.reconciliation import ReconciliationService
 from mnemonic.vault.repository import VaultRepository
 
 
@@ -35,3 +36,8 @@ def get_deck_service() -> DeckService:
 
 def get_card_service() -> CardService:
     return CardService(repo=get_repo())
+
+
+def get_reconciliation_service() -> ReconciliationService:
+    cfg = get_config()
+    return ReconciliationService(vault_root=cfg.vault.path, engine=get_engine())
