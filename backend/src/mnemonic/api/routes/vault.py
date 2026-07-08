@@ -4,11 +4,46 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from mnemonic.api.deps import get_config
-from mnemonic.exceptions import GitError
+from mnemonic.api.deps import get_config, get_reconciliation_service
+from mnemonic.exceptions import GitError, IntegrityError
+from mnemonic.services.reconciliation import ReconciliationReport, ReconciliationService
 from mnemonic.vault import git_ops
 
 router = APIRouter(prefix="/vault", tags=["vault"])
+
+
+def _serialize_report(report: ReconciliationReport) -> dict:
+    """Serialize a ReconciliationReport for the API response."""
+    return {
+        "counts": report.counts,
+        "dangling": {
+            "review_logs": report.dangling.review_logs,
+            "variations": report.dangling.variations,
+            "parents": report.dangling.parents,
+        },
+        "duplicates": [
+            {"normalized_hash": group.normalized_hash, "card_ids": group.card_ids}
+            for group in report.duplicates
+        ],
+    }
+
+
+@router.post("/reconcile")
+def reconcile_vault(
+    svc: ReconciliationService = Depends(get_reconciliation_service),
+) -> dict:
+    """Scan the vault and reconcile card-integrity state, returning the full report.
+
+    Raises:
+        HTTPException(422): If a card has an un-hashable (empty) core body. The
+            detail names the offending card and note path — Principle #1, no
+            silent failures.
+    """
+    try:
+        report = svc.run()
+    except IntegrityError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _serialize_report(report)
 
 
 def _head_short(cwd) -> str:
@@ -42,9 +77,7 @@ def vault_status(cfg=Depends(get_config)):
     try:
         head = _head_short(cwd)
         dirty = not git_ops.working_tree_clean(cwd)
-        unpushed = git_ops.has_unpushed_commits(
-            cwd, branch=cfg.vault.branch
-        )
+        unpushed = git_ops.has_unpushed_commits(cwd, branch=cfg.vault.branch)
     except (GitError, OSError) as exc:
         raise HTTPException(
             status_code=503,
