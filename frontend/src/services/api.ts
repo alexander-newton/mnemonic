@@ -127,6 +127,20 @@ export const api = {
   deleteCard: (id: string) =>
     request<void>(`/cards/${id}`, { method: 'DELETE' }),
 
+  /** List cards whose core content changed since scheduling was set. */
+  listChangedCards: () => request<import('../types').ChangedCard[]>('/cards/changed'),
+
+  /** Apply keep / soft-reset / full-reset to a flagged card. */
+  applyCoreChange: (
+    cardId: string,
+    decision: import('../types').CoreChangeDecision,
+  ) =>
+    request<import('../types').SchedulingSnapshot>(`/cards/${cardId}/core-change`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision }),
+    }),
+
   // ---- Reviews ----
 
   /** Submit a card rating. */
