@@ -11,6 +11,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 
+from mnemonic.core.fsrs.defaults import NEW_CARD_DEFAULTS
 from mnemonic.db.models import SchedulingState
 from mnemonic.db.sqlite import session_scope
 from mnemonic.vault.deck import DeckConfig
@@ -72,12 +73,12 @@ class VaultRepository:
                     front=sc.front,
                     back=sc.back,
                     title=sc.title,
-                    state=row.state if row else "new",
-                    stability=row.stability if row else 0.0,
-                    difficulty=row.difficulty if row else 5.0,
-                    due=row.due if row else None,
-                    reps=row.reps if row else 0,
-                    lapses=row.lapses if row else 0,
+                    state=row.state if row else NEW_CARD_DEFAULTS.state,
+                    stability=row.stability if row else NEW_CARD_DEFAULTS.stability,
+                    difficulty=row.difficulty if row else NEW_CARD_DEFAULTS.difficulty,
+                    due=row.due if row else NEW_CARD_DEFAULTS.due,
+                    reps=row.reps if row else NEW_CARD_DEFAULTS.reps,
+                    lapses=row.lapses if row else NEW_CARD_DEFAULTS.lapses,
                     leech_score=row.leech_score if row else 0.0,
                     suspended=bool(row.suspended) if row else False,
                 )
