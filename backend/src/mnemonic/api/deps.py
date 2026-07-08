@@ -9,6 +9,7 @@ from sqlalchemy import Engine
 from mnemonic.config import Config, load_config
 from mnemonic.db.sqlite import create_engine
 from mnemonic.services.card import CardService
+from mnemonic.services.core_change import CoreChangeService
 from mnemonic.services.deck import DeckService
 from mnemonic.services.reconciliation import ReconciliationService
 from mnemonic.vault.repository import VaultRepository
@@ -41,3 +42,7 @@ def get_card_service() -> CardService:
 def get_reconciliation_service() -> ReconciliationService:
     cfg = get_config()
     return ReconciliationService(vault_root=cfg.vault.path, engine=get_engine())
+
+
+def get_core_change_service() -> CoreChangeService:
+    return CoreChangeService(repo=get_repo(), engine=get_engine())

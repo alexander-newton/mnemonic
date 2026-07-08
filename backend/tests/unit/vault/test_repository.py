@@ -43,3 +43,35 @@ def test_list_decks(tmp_path: Path):
     decks = repo.list_decks()
     assert len(decks) == 1
     assert decks[0].folder.name == "gt"
+
+
+def test_list_cards_exposes_core_changed(tmp_path: Path):
+    from datetime import datetime
+
+    vault, engine = _setup(tmp_path)
+    with session_scope(engine) as s:
+        s.add(
+            SchedulingState(
+                card_id="card-aaaabbbb",
+                state="review",
+                stability=4.0,
+                difficulty=6.0,
+                reps=5,
+                lapses=0,
+                leech_score=0.0,
+                core_changed=True,
+                core_changed_at=datetime(2026, 6, 12, 9, 0, 0),
+            )
+        )
+    repo = VaultRepository(vault_root=vault, engine=engine)
+    card = repo.list_cards()[0]
+    assert card.core_changed is True
+    assert card.core_changed_at == datetime(2026, 6, 12, 9, 0, 0)
+
+
+def test_list_cards_core_changed_defaults_false(tmp_path: Path):
+    vault, engine = _setup(tmp_path)
+    repo = VaultRepository(vault_root=vault, engine=engine)
+    card = repo.list_cards()[0]
+    assert card.core_changed is False
+    assert card.core_changed_at is None

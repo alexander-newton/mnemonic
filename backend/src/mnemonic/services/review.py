@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import Engine
 
+from mnemonic.core.fsrs.defaults import NEW_CARD_DEFAULTS
 from mnemonic.core.fsrs.models import CardState
 from mnemonic.core.fsrs.scheduler import schedule_review
 from mnemonic.db.models import ReviewLog, SchedulingState
@@ -95,11 +96,11 @@ class ReviewService:
             if state is None:
                 state = SchedulingState(
                     card_id=card_id,
-                    state="new",
-                    stability=0.0,
-                    difficulty=5.0,
-                    reps=0,
-                    lapses=0,
+                    state=NEW_CARD_DEFAULTS.state,
+                    stability=NEW_CARD_DEFAULTS.stability,
+                    difficulty=NEW_CARD_DEFAULTS.difficulty,
+                    reps=NEW_CARD_DEFAULTS.reps,
+                    lapses=NEW_CARD_DEFAULTS.lapses,
                     leech_score=0.0,
                 )
                 s.add(state)

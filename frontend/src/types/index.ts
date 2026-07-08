@@ -240,3 +240,38 @@ export interface UpdateDeckPayload {
   dailyReviewLimit?: number;
   dailyNewLimit?: number;
 }
+
+/**
+ * Decision for handling a card whose core content changed.
+ */
+export type CoreChangeDecision = 'keep' | 'soft_reset' | 'full_reset';
+
+/**
+ * Card with changed core content that needs reconciliation.
+ */
+export interface ChangedCard {
+  card_id: string;
+  title: string;
+  front: string;
+  syntax: string;
+  change_kind: string | null;
+  core_changed_at: string | null;
+  state: string;
+  due: string | null;
+  stability: number;
+  difficulty: number;
+}
+
+/**
+ * Snapshot of scheduling state after applying a core change decision.
+ */
+export interface SchedulingSnapshot {
+  card_id: string;
+  core_changed: boolean;
+  state: string;
+  stability: number;
+  difficulty: number;
+  due: string | null;
+  reps: number;
+  lapses: number;
+}
