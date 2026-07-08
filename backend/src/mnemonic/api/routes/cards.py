@@ -27,6 +27,8 @@ def _serialize(card) -> dict:
         "lapses": card.lapses,
         "leech_score": card.leech_score,
         "suspended": card.suspended,
+        "core_changed": card.core_changed,
+        "core_changed_at": card.core_changed_at.isoformat() if card.core_changed_at else None,
     }
 
 
