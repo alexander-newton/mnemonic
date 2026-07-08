@@ -7,15 +7,19 @@ from datetime import datetime
 from typing import Literal
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 
 from mnemonic.core.fsrs.defaults import NEW_CARD_DEFAULTS
-from mnemonic.db.models import SchedulingState
+from mnemonic.db.models import CoreChangeLog, SchedulingState
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import CardNotFoundError, ValidationError
 from mnemonic.vault.repository import VaultRepository
 
 Decision = Literal["keep", "soft_reset", "full_reset"]
 _DECISIONS = ("keep", "soft_reset", "full_reset")
+
+# card_id -> (state, due, stability, difficulty, core_changed_at)
+_FlaggedRow = tuple[str, "datetime | None", float, float, "datetime | None"]
 
 
 @dataclass(frozen=True)
@@ -94,6 +98,63 @@ class CoreChangeService:
                 reps=row.reps,
                 lapses=row.lapses,
             )
+
+    def list_changed(self) -> list[ChangedCard]:
+        """Return flagged cards, enriched with content and their latest change kind.
+
+        Cards flagged but no longer present in the vault (orphaned) are skipped.
+        """
+        with session_scope(self.engine) as s:
+            rows = s.query(SchedulingState).filter(SchedulingState.core_changed.is_(True)).all()
+            flagged: dict[str, _FlaggedRow] = {
+                r.card_id: (r.state, r.due, r.stability, r.difficulty, r.core_changed_at)
+                for r in rows
+            }
+            kinds = self._latest_kinds(s, list(flagged))
+        return self._join_cards(flagged, kinds)
+
+    @staticmethod
+    def _latest_kinds(session: Session, card_ids: list[str]) -> dict[str, str]:
+        """Map each card_id to its most recent CoreChangeLog.change_kind."""
+        if not card_ids:
+            return {}
+        logs = (
+            session.query(CoreChangeLog)
+            .filter(CoreChangeLog.card_id.in_(card_ids))
+            .order_by(CoreChangeLog.detected_at.desc())
+            .all()
+        )
+        latest: dict[str, str] = {}
+        for log in logs:
+            latest.setdefault(log.card_id, log.change_kind)
+        return latest
+
+    def _join_cards(
+        self, flagged: dict[str, _FlaggedRow], kinds: dict[str, str]
+    ) -> list[ChangedCard]:
+        """Join flagged scheduling rows with vault card content."""
+        cards = {c.card_id: c for c in self.repo.list_cards()}
+        out: list[ChangedCard] = []
+        for card_id, (state, due, stability, difficulty, changed_at) in flagged.items():
+            card = cards.get(card_id)
+            if card is None:
+                continue
+            out.append(
+                ChangedCard(
+                    card_id=card_id,
+                    title=card.title,
+                    front=card.front,
+                    syntax=card.syntax,
+                    change_kind=kinds.get(card_id),
+                    core_changed_at=changed_at,
+                    state=state,
+                    due=due,
+                    stability=stability,
+                    difficulty=difficulty,
+                )
+            )
+        out.sort(key=lambda c: (c.core_changed_at or datetime.min), reverse=True)
+        return out
 
     @staticmethod
     def _apply_decision(row: SchedulingState, decision: str, now: datetime) -> None:

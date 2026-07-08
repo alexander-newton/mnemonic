@@ -17,7 +17,7 @@ def _setup(tmp_path: Path):
     vault = tmp_path / "vault"
     (vault / "01_Projects" / "gt").mkdir(parents=True)
     (vault / "01_Projects" / "gt" / "nash.qmd").write_text(
-        "---\ntitle: nash\n---\n## Card\n\nThe {{c1::Nash}} equilibrium.\n"
+        "---\ntitle: nash\n---\n## Card\n\nThe {{c1::Nash}} equilibrium. ^card-aaaabbbb\n"
     )
     engine = create_engine(vault / ".mnemonic" / "state.sqlite")
     Base.metadata.create_all(engine)
@@ -110,3 +110,72 @@ def test_apply_bad_decision_raises(tmp_path: Path):
     _flagged_row(engine)
     with pytest.raises(ValidationError):
         svc.apply(card_id="card-aaaabbbb", decision="obliterate", now=NOW)
+
+
+def test_list_changed_returns_only_flagged_with_kind(tmp_path: Path):
+    from mnemonic.db.models import CoreChangeLog
+
+    svc, engine = _service(tmp_path)
+    _flagged_row(engine)  # card-aaaabbbb flagged, matches the seeded nash.qmd
+    with session_scope(engine) as s:
+        s.add(
+            CoreChangeLog(
+                id="log1",
+                card_id="card-aaaabbbb",
+                change_kind="material",
+                old_hash="o",
+                new_hash="n",
+                old_normalized="on",
+                new_normalized="nn",
+                detected_at=datetime(2026, 6, 12, 9, 0, 0),
+            )
+        )
+
+    changed = svc.list_changed()
+
+    assert len(changed) == 1
+    item = changed[0]
+    assert item.card_id == "card-aaaabbbb"
+    assert item.title == "nash"
+    assert item.change_kind == "material"
+    assert item.stability == 12.4
+
+
+def test_list_changed_uses_latest_change_kind(tmp_path: Path):
+    from mnemonic.db.models import CoreChangeLog
+
+    svc, engine = _service(tmp_path)
+    _flagged_row(engine)
+    with session_scope(engine) as s:
+        s.add(
+            CoreChangeLog(
+                id="old",
+                card_id="card-aaaabbbb",
+                change_kind="material",
+                old_hash="o",
+                new_hash="n",
+                old_normalized="on",
+                new_normalized="nn",
+                detected_at=datetime(2026, 6, 10, 9, 0, 0),
+            )
+        )
+        s.add(
+            CoreChangeLog(
+                id="new",
+                card_id="card-aaaabbbb",
+                change_kind="cloze_structure",
+                old_hash="o",
+                new_hash="n",
+                old_normalized="on",
+                new_normalized="nn",
+                detected_at=datetime(2026, 6, 12, 9, 0, 0),
+            )
+        )
+
+    assert svc.list_changed()[0].change_kind == "cloze_structure"
+
+
+def test_list_changed_empty_when_none_flagged(tmp_path: Path):
+    svc, engine = _service(tmp_path)
+    _flagged_row(engine, core_changed=False, core_changed_at=None)
+    assert svc.list_changed() == []
