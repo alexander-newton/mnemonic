@@ -57,3 +57,52 @@ def test_new_cards_capped_by_daily_new_limit():
     cards = [_card(f"new{i}", state="new") for i in range(5)]
     out = SimplePolicy().build_queue(cards, NOW, daily_new_limit=2)
     assert len(out) == 2 and all(c.state == "new" for c in out)
+
+
+def test_queue_service_builds_items(tmp_path):
+    from mnemonic.db.models import Base
+    from mnemonic.db.sqlite import create_engine
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    (vault / "01_Projects" / "gt" / "_deck.md").write_text(
+        "---\ndeck_name: GT\nvariation_enabled: false\nvariation_frequency: 0.0\n"
+        "leech_threshold: 8\ndaily_review_limit: 100\ndaily_new_limit: 10\n---\n"
+    )
+    (vault / "01_Projects" / "gt" / "nash.qmd").write_text(
+        "---\ntitle: nash\n---\n## Card\n\nA {{c1::Nash}} equilibrium. ^card-aaaabbbb\n"
+    )
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    svc = QueueService(repo=VaultRepository(vault_root=vault, engine=engine), engine=engine)
+
+    items = svc.build("gt")
+
+    assert len(items) == 1
+    item = items[0]
+    assert item.card_id == "card-aaaabbbb"
+    assert item.front == "A [...] equilibrium."
+    assert item.answer == "A **Nash** equilibrium."
+    assert set(item.previews.keys()) == {1, 2, 3, 4}
+    assert all(isinstance(v, int) for v in item.previews.values())
+
+
+def test_queue_service_unknown_deck_raises(tmp_path):
+    from mnemonic.db.models import Base
+    from mnemonic.db.sqlite import create_engine
+    from mnemonic.exceptions import DeckNotFoundError
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    svc = QueueService(repo=VaultRepository(vault_root=vault, engine=engine), engine=engine)
+
+    import pytest
+
+    with pytest.raises(DeckNotFoundError):
+        svc.build("nope")
