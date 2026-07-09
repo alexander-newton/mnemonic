@@ -39,8 +39,8 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Navigate to="/decks" replace />} />
             <Route path="/decks" element={<DeckListPage />} />
-            <Route path="/decks/:folder" element={<DeckDetailPage />} />
-            <Route path="/study/:folder" element={<StudyPage />} />
+            <Route path="/decks/:deckId" element={<DeckDetailPage />} />
+            <Route path="/study/:deckId" element={<StudyPage />} />
             <Route path="/changed" element={<ChangedCardsPage />} />
             <Route path="/usage" element={<UsagePage />} />
             <Route path="/settings" element={<SettingsPage />} />

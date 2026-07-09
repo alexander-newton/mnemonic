@@ -12,7 +12,7 @@ vi.mock('@/hooks/useReviewQueue', () => ({ useReviewQueue: mockUseReviewQueue })
 vi.mock('@/services/api', () => ({ api: { rate: mockRate } }));
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
-  return { ...actual, useParams: () => ({ folder: 'gt' }), useNavigate: () => vi.fn() };
+  return { ...actual, useParams: () => ({ deckId: 'gt' }), useNavigate: () => vi.fn() };
 });
 vi.mock('@/components/review/CardContent', () => ({
   CardContent: ({ markdown }: { markdown: string }) => <div>{markdown}</div>,

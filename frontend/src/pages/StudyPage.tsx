@@ -9,9 +9,9 @@ import { RatingButtons } from '@/components/review/RatingButtons';
 import { Skeleton, ErrorMessage, EmptyState, Button } from '@/components/ui';
 
 export const StudyPage: React.FC = () => {
-  const { folder } = useParams();
+  const { deckId } = useParams();
   const navigate = useNavigate();
-  const { data: queue, isLoading, error } = useReviewQueue(folder);
+  const { data: queue, isLoading, error } = useReviewQueue(deckId);
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -46,7 +46,7 @@ export const StudyPage: React.FC = () => {
         <h1 className="text-2xl font-bold mb-4">
           Reviewed {queue.length} card{queue.length === 1 ? '' : 's'} · Done
         </h1>
-        <Button onClick={() => navigate(`/decks/${folder}`)}>Back to deck</Button>
+        <Button onClick={() => navigate(`/decks/${deckId}`)}>Back to deck</Button>
       </div>
     );
   }
