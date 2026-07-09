@@ -34,8 +34,12 @@ cycle:
   `state != "new"`) ordered by `due` asc, then new cards capped at `daily_new_limit`. No time
   limits, no cross-session daily counting yet (that is B1-Policy).
 - **Rating:** reuse the existing `POST /reviews/rate` unchanged.
-- **Theme:** a plain, muted **warm off-white** theme via the existing Tailwind setup (no Bootstrap
-  — it would collide with Tailwind). **Font** configurable via a Settings-page dropdown.
+- **Theme:** a plain, muted **warm off-white** theme. NOTE (discovered during planning): Tailwind
+  is referenced by every page's classes but was **never installed or wired** (no `tailwindcss`/
+  `postcss` deps, no config, no CSS pipeline, no stylesheet imported) — the app currently renders
+  unstyled. So this work **wires up Tailwind for the first time** (activating the existing utility
+  classes app-wide) and layers the warm theme on top. **Font** configurable via a Settings-page
+  dropdown.
 
 ## Architecture
 
@@ -88,14 +92,19 @@ A `get_queue_service()` provider is added to `deps.py`. Rating stays on the exis
 
 ### Theme & font
 
-- **Tokens as CSS variables** on `:root` (global stylesheet): `--app-bg: #f4f2ee`,
+- **Wire up Tailwind (new):** add `tailwindcss` + `postcss` + `autoprefixer` dev deps, a
+  `postcss.config.js`, and a `tailwind.config.js` with `content` globbing `./index.html` and
+  `./src/**/*.{ts,tsx}`. Create `src/index.css` with the three `@tailwind base/components/utilities`
+  directives, and import it in `main.tsx`. This is what makes the existing utility classes render.
+- **Tokens as CSS variables** in `src/index.css` on `:root`: `--app-bg: #f4f2ee`,
   `--app-surface: #faf9f6`, `--app-text: #1f2328`, `--app-text-muted: #5a5f66`,
   `--app-border: #e5e1d8`, `--app-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`.
-  `body` uses bg/text/font vars.
-- **Tailwind** `tailwind.config` gains semantic colors (`app`, `surface`, `muted`, `border-app`)
-  mapped to the vars → `bg-app`, `bg-surface`, `text-muted`, etc. A bounded sweep swaps top-level
-  `bg-gray-50` → `bg-app` and `bg-white` → `bg-surface` on existing page/card wrappers; the review
-  screen uses the tokens natively.
+  `body` uses the bg/text/font vars.
+- **Tailwind** `tailwind.config.js` `theme.extend.colors` gains semantic tokens (`app`, `surface`,
+  `muted`, `border-app`) mapped to the vars → `bg-app`, `bg-surface`, `text-muted`, etc. A bounded
+  sweep swaps top-level `bg-gray-50` → `bg-app` and `bg-white` → `bg-surface` on existing page/card
+  wrappers so the newly-activated pages read as warm (not bright white); the review screen uses the
+  tokens natively.
 - **Font picker:** `hooks/useFontPreference.ts` reads a saved choice from `localStorage`, sets
   `--app-font` on `:root` at startup and on change (live, no reload). `SettingsPage.tsx` gains a
   **Font** dropdown of curated no-download stacks — *System sans* (default), *Humanist sans*
