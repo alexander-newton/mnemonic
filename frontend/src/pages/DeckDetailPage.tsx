@@ -187,6 +187,13 @@ export const DeckDetailPage: React.FC = () => {
 
           <div className="flex gap-2">
             <Button
+              variant="primary"
+              onClick={() => navigate(`/study/${deckId}`)}
+              aria-label="Study deck"
+            >
+              Study
+            </Button>
+            <Button
               onClick={() => setIsEditDeckModalOpen(true)}
               variant="secondary"
               aria-label="Edit deck"
@@ -205,7 +212,7 @@ export const DeckDetailPage: React.FC = () => {
 
         {/* Deck Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <p className="text-sm text-gray-600 font-medium">Total Cards</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{cards.length} cards</p>
           </div>
@@ -227,7 +234,7 @@ export const DeckDetailPage: React.FC = () => {
       {/* Delete Confirmation Dialog */}
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6 space-y-4">
+          <div className="bg-surface rounded-lg shadow-lg max-w-sm w-full p-6 space-y-4">
             <h2 className="text-lg font-bold">
               Are you sure you want to delete this{' '}
               {deleteConfirmation.type === 'deck' ? 'deck' : 'card'}?
@@ -336,7 +343,7 @@ export const DeckDetailPage: React.FC = () => {
                 <div
                   key={card.id}
                   data-testid="card-item"
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="bg-surface border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">

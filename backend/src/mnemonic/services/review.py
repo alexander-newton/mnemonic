@@ -10,6 +10,7 @@ from sqlalchemy import Engine
 from mnemonic.core.fsrs.defaults import NEW_CARD_DEFAULTS
 from mnemonic.core.fsrs.models import CardState
 from mnemonic.core.fsrs.scheduler import schedule_review
+from mnemonic.core.fsrs.state import to_card_state
 from mnemonic.db.models import ReviewLog, SchedulingState
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import CardNotFoundError
@@ -27,23 +28,15 @@ def _last_review_time(session, card_id: str) -> datetime | None:
 
 
 def _to_fsrs_state(row: SchedulingState, last_review: datetime | None) -> CardState:
-    now = datetime.now()
-    if last_review is None:
-        elapsed = 0.0
-    else:
-        elapsed = max(0.0, (now - last_review).total_seconds() / 86400.0)
-    scheduled = 0.0
-    if row.due is not None and last_review is not None:
-        scheduled = max(0.0, (row.due - last_review).total_seconds() / 86400.0)
-    return CardState(
+    return to_card_state(
         stability=row.stability,
         difficulty=row.difficulty,
-        elapsed_days=elapsed,
-        scheduled_days=scheduled,
         reps=row.reps,
         lapses=row.lapses,
         state=row.state,
+        due=row.due,
         last_review=last_review,
+        now=datetime.now(),
     )
 
 

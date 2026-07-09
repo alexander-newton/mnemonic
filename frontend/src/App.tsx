@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './layouts/AppLayout';
 import { DeckListPage } from './pages/DeckListPage';
 import { DeckDetailPage } from './pages/DeckDetailPage';
+import { StudyPage } from './pages/StudyPage';
 import { ChangedCardsPage } from './pages/ChangedCardsPage';
 import UsagePage from './pages/UsagePage';
 import SettingsPage from './pages/SettingsPage';
@@ -38,7 +39,8 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Navigate to="/decks" replace />} />
             <Route path="/decks" element={<DeckListPage />} />
-            <Route path="/decks/:folder" element={<DeckDetailPage />} />
+            <Route path="/decks/:deckId" element={<DeckDetailPage />} />
+            <Route path="/study/:deckId" element={<StudyPage />} />
             <Route path="/changed" element={<ChangedCardsPage />} />
             <Route path="/usage" element={<UsagePage />} />
             <Route path="/settings" element={<SettingsPage />} />

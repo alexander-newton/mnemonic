@@ -162,11 +162,11 @@ export const EditCardModal: React.FC<EditCardModalProps> = ({ isOpen, onClose, c
 
         {showPreview && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-surface rounded-lg p-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Front</p>
               <p className="text-gray-900">{front || '(empty)'}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-surface rounded-lg p-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Back</p>
               <p className="text-gray-900">{back || '(empty)'}</p>
             </div>

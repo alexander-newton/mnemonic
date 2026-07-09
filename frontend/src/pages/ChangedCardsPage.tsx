@@ -21,7 +21,7 @@ export const ChangedCardsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto" data-testid="changed-skeleton">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">Changed Cards</h1>
           <Skeleton variant="rect" height={96} className="mb-4" />
@@ -33,7 +33,7 @@ export const ChangedCardsPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">Changed Cards</h1>
           <ErrorMessage
@@ -47,7 +47,7 @@ export const ChangedCardsPage: React.FC = () => {
 
   if (!cards || cards.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">Changed Cards</h1>
           <EmptyState
@@ -60,7 +60,7 @@ export const ChangedCardsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Changed Cards</h1>
         <p className="text-gray-600 mb-8">
@@ -77,7 +77,7 @@ export const ChangedCardsPage: React.FC = () => {
 
         <ul className="space-y-4">
           {cards.map((card) => (
-            <li key={card.card_id} className="bg-white rounded-lg shadow p-4">
+            <li key={card.card_id} className="bg-surface rounded-lg shadow p-4">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="font-semibold text-gray-900">{card.title}</h2>
                 {card.change_kind && <Badge variant="warning">{card.change_kind}</Badge>}

@@ -12,7 +12,7 @@ describe('Card', () => {
   it('applies base styling', () => {
     render(<Card data-testid="card">Content</Card>);
     const card = screen.getByTestId('card');
-    expect(card).toHaveClass('bg-white', 'rounded-lg', 'shadow-md');
+    expect(card).toHaveClass('bg-surface', 'rounded-lg', 'shadow-md');
   });
 
   it('is not clickable by default', () => {
