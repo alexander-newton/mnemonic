@@ -275,3 +275,14 @@ export interface SchedulingSnapshot {
   reps: number;
   lapses: number;
 }
+
+/**
+ * Card queued for review in the current session.
+ */
+export interface QueuedCard {
+  card_id: string;
+  syntax: string;
+  front: string;
+  answer: string;
+  previews: Record<string, number>;
+}

@@ -151,6 +151,10 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  /** Fetch the review queue for a deck. */
+  reviewQueue: (deck: string) =>
+    request<import('../types').QueuedCard[]>(`/reviews/queue?deck=${encodeURIComponent(deck)}`),
+
   /** @deprecated Alias for rate — kept for backward compat with setup.test.ts. */
   createReview: (payload: object) =>
     request<any>('/reviews', {
