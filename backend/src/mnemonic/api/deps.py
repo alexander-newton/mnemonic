@@ -12,6 +12,7 @@ from mnemonic.services.card import CardService
 from mnemonic.services.core_change import CoreChangeService
 from mnemonic.services.deck import DeckService
 from mnemonic.services.reconciliation import ReconciliationService
+from mnemonic.services.review_queue import QueueService
 from mnemonic.vault.repository import VaultRepository
 
 
@@ -46,3 +47,7 @@ def get_reconciliation_service() -> ReconciliationService:
 
 def get_core_change_service() -> CoreChangeService:
     return CoreChangeService(repo=get_repo(), engine=get_engine())
+
+
+def get_queue_service() -> QueueService:
+    return QueueService(repo=get_repo(), engine=get_engine())
