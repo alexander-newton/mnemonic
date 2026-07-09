@@ -32,7 +32,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+      <div className="bg-surface rounded-lg shadow-lg p-6 max-w-sm w-full">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Deck?</h2>
         <p className="text-gray-600 mb-6">
           Are you sure you want to delete <strong>{deckName}</strong>? This action cannot be undone.

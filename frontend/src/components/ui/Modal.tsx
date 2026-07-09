@@ -90,7 +90,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4"
+        className="bg-surface rounded-lg shadow-2xl max-w-md w-full mx-4"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 id="modal-title" className="text-lg font-semibold text-gray-900">

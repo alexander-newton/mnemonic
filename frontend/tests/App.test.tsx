@@ -65,7 +65,7 @@ describe('App Routing Structure', () => {
     it('applies correct layout styling', () => {
       const { container } = renderAppRoutes(['/decks']);
 
-      const layoutDiv = container.querySelector('.min-h-screen.bg-gray-50');
+      const layoutDiv = container.querySelector('.min-h-screen.bg-app');
       expect(layoutDiv).toBeInTheDocument();
     });
 

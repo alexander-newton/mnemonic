@@ -106,7 +106,7 @@ describe('AppLayout', () => {
         </MemoryRouter>
       );
 
-      expect(container.firstChild).toHaveClass('bg-gray-50');
+      expect(container.firstChild).toHaveClass('bg-app');
     });
 
     it('applies max-width to main content', () => {

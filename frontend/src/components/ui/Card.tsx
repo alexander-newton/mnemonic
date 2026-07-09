@@ -42,7 +42,7 @@ export const Card: React.FC<CardProps> = ({
       }
       aria-label={isClickable ? 'Card button' : undefined}
       className={`
-        bg-white rounded-lg shadow-md p-6
+        bg-surface rounded-lg shadow-md p-6
         ${isClickable ? 'cursor-pointer transition-all duration-200' : ''}
         ${hoverable || onClick ? 'hover:shadow-lg hover:scale-105' : ''}
         ${className || ''}

@@ -62,7 +62,7 @@ export const DeckListPage: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">My Decks</h1>
           <div
@@ -90,7 +90,7 @@ export const DeckListPage: React.FC = () => {
   if (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to load decks';
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">My Decks</h1>
           <ErrorMessage message={errorMessage} onRetry={handleRetry} />
@@ -102,7 +102,7 @@ export const DeckListPage: React.FC = () => {
   // Empty state
   if (!decks || decks.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">My Decks</h1>
           <EmptyState
@@ -120,7 +120,7 @@ export const DeckListPage: React.FC = () => {
 
   // Main content
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-app py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
