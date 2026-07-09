@@ -187,6 +187,13 @@ export const DeckDetailPage: React.FC = () => {
 
           <div className="flex gap-2">
             <Button
+              variant="primary"
+              onClick={() => navigate(`/study/${deckId}`)}
+              aria-label="Study deck"
+            >
+              Study
+            </Button>
+            <Button
               onClick={() => setIsEditDeckModalOpen(true)}
               variant="secondary"
               aria-label="Edit deck"
