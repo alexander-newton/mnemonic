@@ -42,3 +42,22 @@ def test_rate_failure_increments_lapses(tmp_path: Path):
         # FSRS schedule_review returns new_lapses; the service stores that exact value.
         # After a 3 then a 1, FSRS should have new_lapses == 1.
         assert state.lapses >= 1
+
+
+def test_rate_records_deck_folder(tmp_path):
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    (vault / "01_Projects" / "gt" / "nash.qmd").write_text(
+        "---\ntitle: nash\n---\n## Card\n\nA {{c1::Nash}} equilibrium. ^card-aaaabbbb\n"
+    )
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    repo = VaultRepository(vault_root=vault, engine=engine)
+
+    ReviewService(repo=repo, engine=engine).rate(
+        card_id="card-aaaabbbb", rating=3, response_time_ms=1200
+    )
+
+    with session_scope(engine) as s:
+        row = s.query(ReviewLog).filter(ReviewLog.card_id == "card-aaaabbbb").one()
+        assert row.deck_folder == "gt"

@@ -131,5 +131,6 @@ class ReviewService:
                     difficulty_after=outcome.new_difficulty,
                     variation_id=variation_id,
                     variation_helpful=variation_helpful,
+                    deck_folder=card.deck_folder.name,
                 )
             )
