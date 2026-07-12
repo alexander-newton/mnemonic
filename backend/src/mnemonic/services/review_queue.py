@@ -1,12 +1,12 @@
-"""Review queue: build an ordered list of cards to review for a deck.
+"""Review queue: build an ordered, display-ready list of cards to review for a deck.
 
-`ReviewPolicy` is the seam the future cascading-rules engine (B1-Policy) plugs into.
-`SimplePolicy` is the B1-Loop placeholder: due review cards ordered by due, then new
-cards capped at the deck's daily_new_limit.
+`ReviewPolicy` is the seam the policy engine plugs into; `RulesPolicy` selects and orders
+cards from a resolved `EffectivePolicy` plus today's done-counts.
 """
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -15,34 +15,99 @@ from sqlalchemy import Engine
 
 from mnemonic.core.fsrs.preview import preview_schedule
 from mnemonic.core.fsrs.state import to_card_state
+from mnemonic.core.policy.resolve import EffectivePolicy, Limits
 from mnemonic.core.review.faces import build_faces
 from mnemonic.db.models import ReviewLog
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import DeckNotFoundError
 from mnemonic.vault.repository import Card, VaultRepository
 
+_DEFAULT_LIMIT = 20
+
+
+@dataclass(frozen=True)
+class DoneToday:
+    """Cards already reviewed today for a deck, split by new vs due."""
+
+    new: int
+    due: int
+    total: int
+
+
+@dataclass(frozen=True)
+class QueueContext:
+    """Everything a policy needs to build a queue."""
+
+    cards: list[Card]
+    now: datetime
+    policy: EffectivePolicy
+    done_today: DoneToday
+    seed: int
+
 
 class ReviewPolicy(Protocol):
     """Produces the ordered set of cards to review now."""
 
-    def build_queue(self, cards: list[Card], now: datetime, daily_new_limit: int) -> list[Card]: ...
+    def build_queue(self, ctx: QueueContext) -> list[Card]: ...
 
 
-class SimplePolicy:
-    """Due review cards (by due asc) then new cards capped at daily_new_limit."""
-
-    def build_queue(self, cards: list[Card], now: datetime, daily_new_limit: int) -> list[Card]:
-        due = [
-            c
-            for c in cards
-            if not c.suspended and c.state != "new" and c.due is not None and c.due <= now
-        ]
-        due.sort(key=lambda c: c.due or now)
-        new = [c for c in cards if not c.suspended and c.state == "new"][:daily_new_limit]
-        return due + new
+def _cap(limits: Limits, done: int) -> int | None:
+    caps: list[int] = []
+    if limits.per_day is not None:
+        caps.append(max(0, limits.per_day - done))
+    if limits.per_session is not None:
+        caps.append(max(0, limits.per_session))
+    return min(caps) if caps else None
 
 
-_DEFAULT_NEW_LIMIT = 20
+def _take(items: list[Card], cap: int | None) -> list[Card]:
+    return items if cap is None else items[:cap]
+
+
+def _interleave(due: list[Card], new: list[Card], every: int) -> list[Card]:
+    out: list[Card] = []
+    di = ni = 0
+    while di < len(due) or ni < len(new):
+        for _ in range(every):
+            if di < len(due):
+                out.append(due[di])
+                di += 1
+        if ni < len(new):
+            out.append(new[ni])
+            ni += 1
+    return out
+
+
+def _order(order: str, due: list[Card], new: list[Card], ine: int | None, seed: int) -> list[Card]:
+    if order == "new_first":
+        return new + due
+    if order == "shuffle":
+        combined = due + new
+        random.Random(seed).shuffle(combined)
+        return combined
+    if order == "interleave" and ine is not None:
+        return _interleave(due, new, ine)
+    return due + new  # due_first (default)
+
+
+class RulesPolicy:
+    """Select cards within resolved limits and order them per the effective policy."""
+
+    def build_queue(self, ctx: QueueContext) -> list[Card]:
+        p = ctx.policy
+        due_all = sorted(
+            [
+                c
+                for c in ctx.cards
+                if not c.suspended and c.state != "new" and c.due is not None and c.due <= ctx.now
+            ],
+            key=lambda c: c.due or ctx.now,
+        )
+        new_all = [c for c in ctx.cards if not c.suspended and c.state == "new"]
+        due = _take(due_all, _cap(p.due, ctx.done_today.due))
+        new = _take(new_all, _cap(p.new, ctx.done_today.new))
+        ordered = _order(p.order, due, new, p.interleave_new_every, ctx.seed)
+        return _take(ordered, _cap(p.all, ctx.done_today.total))
 
 
 @dataclass(frozen=True)
