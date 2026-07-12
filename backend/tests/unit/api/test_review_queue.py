@@ -31,7 +31,10 @@ def _setup(tmp_path: Path):
 
 def _override(vault, engine):
     app.dependency_overrides[get_queue_service] = lambda: QueueService(
-        repo=VaultRepository(vault_root=vault, engine=engine), engine=engine
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=20,
+        default_due_per_day=200,
     )
 
 
@@ -61,3 +64,17 @@ def test_queue_unknown_deck_404(tmp_path: Path):
         app.dependency_overrides.clear()
 
     assert resp.status_code == 404
+
+
+def test_queue_malformed_policy_returns_422(tmp_path: Path):
+    vault, engine = _setup(tmp_path)
+    (vault / ".mnemonic").mkdir(parents=True, exist_ok=True)
+    (vault / ".mnemonic" / "policy.toml").write_text('[[rule]]\norder = "sideways"\n')
+    _override(vault, engine)
+    try:
+        resp = TestClient(app).get("/api/reviews/queue?deck=gt")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 422
+    assert "order" in resp.json()["detail"]

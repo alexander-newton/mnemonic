@@ -11,11 +11,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, func
 
 from mnemonic.core.fsrs.preview import preview_schedule
 from mnemonic.core.fsrs.state import to_card_state
-from mnemonic.core.policy.resolve import EffectivePolicy, Limits
+from mnemonic.core.policy.resolve import EffectivePolicy, Limits, SeedLimits, resolve_policy
+from mnemonic.core.policy.rules import load_rules
 from mnemonic.core.review.faces import build_faces
 from mnemonic.db.models import ReviewLog
 from mnemonic.db.sqlite import session_scope
@@ -122,20 +123,29 @@ class QueuedCard:
 
 
 class QueueService:
-    """Build an ordered, display-ready review queue for a deck."""
+    """Assemble a display-ready review queue: resolve policy, count today, order, render."""
 
     def __init__(
-        self, *, repo: VaultRepository, engine: Engine, policy: ReviewPolicy | None = None
+        self,
+        *,
+        repo: VaultRepository,
+        engine: Engine,
+        default_new_per_day: int = _DEFAULT_LIMIT,
+        default_due_per_day: int = _DEFAULT_LIMIT,
+        policy: ReviewPolicy | None = None,
     ) -> None:
         self.repo = repo
         self.engine = engine
-        self.policy = policy or SimplePolicy()
+        self.default_new_per_day = default_new_per_day
+        self.default_due_per_day = default_due_per_day
+        self.policy = policy or RulesPolicy()
 
     def build(self, deck_folder: str) -> list[QueuedCard]:
-        """Resolve the deck, order its cards by policy, and build display items.
+        """Build the queue for a deck.
 
         Raises:
             DeckNotFoundError: If no deck folder with that name exists.
+            PolicyError: If the vault's policy.toml is malformed.
         """
         now = datetime.now()
         deck = next((d for d in self.repo.list_decks() if d.folder.name == deck_folder), None)
@@ -144,10 +154,36 @@ class QueueService:
                 f"Deck '{deck_folder}' not found in the vault. Check the deck folder name."
             )
         cards = [c for c in self.repo.list_cards() if c.deck_folder.name == deck_folder]
-        limit = deck.config.daily_new_limit if deck.config else _DEFAULT_NEW_LIMIT
-        ordered = self.policy.build_queue(cards, now, limit)
+        seed_limits = SeedLimits(
+            new_per_day=deck.config.daily_new_limit if deck.config else self.default_new_per_day,
+            due_per_day=deck.config.daily_review_limit if deck.config else self.default_due_per_day,
+        )
+        effective = resolve_policy(
+            seed=seed_limits, rules=load_rules(self.repo.vault_root), deck=deck_folder
+        )
+        ctx = QueueContext(
+            cards=cards,
+            now=now,
+            policy=effective,
+            done_today=self._done_today(deck_folder, now),
+            seed=now.toordinal(),
+        )
+        ordered = self.policy.build_queue(ctx)
         last_reviews = self._last_reviews([c.card_id for c in ordered])
         return [self._to_item(c, last_reviews.get(c.card_id), now) for c in ordered]
+
+    def _done_today(self, deck_folder: str, now: datetime) -> DoneToday:
+        start = datetime(now.year, now.month, now.day)
+        with session_scope(self.engine) as s:
+            rows = (
+                s.query(ReviewLog.state_before, func.count())
+                .filter(ReviewLog.deck_folder == deck_folder, ReviewLog.review_time >= start)
+                .group_by(ReviewLog.state_before)
+                .all()
+            )
+        new = sum(n for sb, n in rows if sb == "new")
+        due = sum(n for sb, n in rows if sb != "new")
+        return DoneToday(new=new, due=due, total=new + due)
 
     def _last_reviews(self, card_ids: list[str]) -> dict[str, datetime]:
         if not card_ids:

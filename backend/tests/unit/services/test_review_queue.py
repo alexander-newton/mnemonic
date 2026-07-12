@@ -132,7 +132,12 @@ def test_queue_service_builds_items(tmp_path):
     )
     engine = create_engine(vault / ".mnemonic" / "state.sqlite")
     Base.metadata.create_all(engine)
-    svc = QueueService(repo=VaultRepository(vault_root=vault, engine=engine), engine=engine)
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=20,
+        default_due_per_day=200,
+    )
 
     items = svc.build("gt")
 
@@ -156,9 +161,46 @@ def test_queue_service_unknown_deck_raises(tmp_path):
     vault.mkdir()
     engine = create_engine(vault / ".mnemonic" / "state.sqlite")
     Base.metadata.create_all(engine)
-    svc = QueueService(repo=VaultRepository(vault_root=vault, engine=engine), engine=engine)
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=20,
+        default_due_per_day=200,
+    )
 
     import pytest
 
     with pytest.raises(DeckNotFoundError):
         svc.build("nope")
+
+
+def test_queue_service_honours_policy_toml(tmp_path):
+    from mnemonic.db.models import Base
+    from mnemonic.db.sqlite import create_engine
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    (vault / "01_Projects" / "gt" / "_deck.md").write_text(
+        "---\ndeck_name: GT\nvariation_enabled: false\nvariation_frequency: 0.0\n"
+        "leech_threshold: 8\ndaily_review_limit: 100\ndaily_new_limit: 10\n---\n"
+    )
+    for i in range(4):
+        (vault / "01_Projects" / "gt" / f"n{i}.qmd").write_text(
+            f"---\ntitle: n{i}\n---\n## Card\n\nA {{{{c1::x}}}} card. ^card-n{i}\n"
+        )
+    (vault / ".mnemonic").mkdir(parents=True, exist_ok=True)
+    (vault / ".mnemonic" / "policy.toml").write_text('[[rule]]\nscope = "new"\nper_day = 2\n')
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=20,
+        default_due_per_day=200,
+    )
+
+    items = svc.build("gt")
+
+    assert len(items) == 2  # 4 new cards, policy.toml caps new per_day at 2

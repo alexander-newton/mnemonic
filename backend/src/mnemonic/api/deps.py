@@ -50,4 +50,10 @@ def get_core_change_service() -> CoreChangeService:
 
 
 def get_queue_service() -> QueueService:
-    return QueueService(repo=get_repo(), engine=get_engine())
+    cfg = get_config()
+    return QueueService(
+        repo=get_repo(),
+        engine=get_engine(),
+        default_new_per_day=cfg.defaults.daily_new_limit,
+        default_due_per_day=cfg.defaults.daily_review_limit,
+    )

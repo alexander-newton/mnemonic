@@ -10,6 +10,7 @@ from mnemonic.exceptions import (
     CardNotFoundError,
     DeckNotFoundError,
     InvalidRatingError,
+    PolicyError,
     RenderError,
 )
 from mnemonic.services.review import ReviewService
@@ -43,7 +44,7 @@ def review_queue(deck: str, svc: QueueService = Depends(get_queue_service)) -> l
         items = svc.build(deck)
     except DeckNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except RenderError as exc:
+    except (RenderError, PolicyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return [_serialize_queued(q) for q in items]
 
