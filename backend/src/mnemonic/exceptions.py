@@ -58,6 +58,13 @@ class IntegrityError(MnemonicError):
     pass
 
 
+# Policy errors
+class PolicyError(MnemonicError):
+    """The review policy rules file (policy.toml) is malformed."""
+
+    pass
+
+
 # LLM errors
 class LLMError(MnemonicError):
     """Base class for LLM-related errors."""
