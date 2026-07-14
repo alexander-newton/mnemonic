@@ -139,10 +139,10 @@ def test_queue_service_builds_items(tmp_path):
         default_due_per_day=200,
     )
 
-    items = svc.build("gt")
+    result = svc.build("gt")
 
-    assert len(items) == 1
-    item = items[0]
+    assert len(result.cards) == 1
+    item = result.cards[0]
     assert item.card_id == "card-aaaabbbb"
     assert item.front == "A [...] equilibrium."
     assert item.answer == "A **Nash** equilibrium."
@@ -201,6 +201,72 @@ def test_queue_service_honours_policy_toml(tmp_path):
         default_due_per_day=200,
     )
 
-    items = svc.build("gt")
+    assert len(svc.build("gt").cards) == 2  # 4 new cards, policy.toml caps new per_day at 2
 
-    assert len(items) == 2  # 4 new cards, policy.toml caps new per_day at 2
+
+def test_minutes_today_gate_empties_queue(tmp_path):
+    from datetime import datetime
+
+    from mnemonic.db.models import Base, ReviewLog
+    from mnemonic.db.sqlite import create_engine, session_scope
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    for i in range(3):
+        (vault / "01_Projects" / "gt" / f"n{i}.qmd").write_text(
+            f"---\ntitle: n{i}\n---\n## Card\n\nA {{{{c1::x}}}} card. ^card-n{i}\n"
+        )
+    (vault / ".mnemonic").mkdir(parents=True, exist_ok=True)
+    (vault / ".mnemonic" / "policy.toml").write_text("[[rule]]\nminutes_per_day = 10\n")
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    with session_scope(engine) as s:
+        s.add(
+            ReviewLog(
+                id="r1",
+                card_id="card-n0",
+                rating=3,
+                response_time_ms=12 * 60_000,
+                review_time=datetime.now(),
+                deck_folder="gt",
+            )
+        )
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=50,
+        default_due_per_day=50,
+    )
+
+    result = svc.build("gt")
+    assert result.cards == []
+    assert result.limits.minutes_per_session is None
+
+
+def test_result_surfaces_minutes_per_session(tmp_path):
+    from mnemonic.db.models import Base
+    from mnemonic.db.sqlite import create_engine
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    (vault / "01_Projects" / "gt" / "n0.qmd").write_text(
+        "---\ntitle: n0\n---\n## Card\n\nA {{c1::x}} card. ^card-n0\n"
+    )
+    (vault / ".mnemonic").mkdir(parents=True, exist_ok=True)
+    (vault / ".mnemonic" / "policy.toml").write_text("[[rule]]\nminutes_per_session = 25\n")
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=50,
+        default_due_per_day=50,
+    )
+
+    result = svc.build("gt")
+    assert len(result.cards) == 1
+    assert result.limits.minutes_per_session == 25

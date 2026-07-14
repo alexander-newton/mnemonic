@@ -122,6 +122,21 @@ class QueuedCard:
     previews: dict[int, int]
 
 
+@dataclass(frozen=True)
+class QueueLimits:
+    """Limits the frontend must enforce (time/session is wall-clock at runtime)."""
+
+    minutes_per_session: int | None
+
+
+@dataclass(frozen=True)
+class QueueResult:
+    """The built queue plus the client-enforced limits."""
+
+    cards: list[QueuedCard]
+    limits: QueueLimits
+
+
 class QueueService:
     """Assemble a display-ready review queue: resolve policy, count today, order, render."""
 
@@ -140,7 +155,7 @@ class QueueService:
         self.default_due_per_day = default_due_per_day
         self.policy = policy or RulesPolicy()
 
-    def build(self, deck_folder: str) -> list[QueuedCard]:
+    def build(self, deck_folder: str) -> QueueResult:
         """Build the queue for a deck.
 
         Raises:
@@ -161,6 +176,12 @@ class QueueService:
         effective = resolve_policy(
             seed=seed_limits, rules=load_rules(self.repo.vault_root), deck=deck_folder
         )
+        limits = QueueLimits(minutes_per_session=effective.minutes_per_session)
+        if (
+            effective.minutes_per_day is not None
+            and self._minutes_today(deck_folder, now) >= effective.minutes_per_day
+        ):
+            return QueueResult(cards=[], limits=limits)
         ctx = QueueContext(
             cards=cards,
             now=now,
@@ -170,7 +191,18 @@ class QueueService:
         )
         ordered = self.policy.build_queue(ctx)
         last_reviews = self._last_reviews([c.card_id for c in ordered])
-        return [self._to_item(c, last_reviews.get(c.card_id), now) for c in ordered]
+        items = [self._to_item(c, last_reviews.get(c.card_id), now) for c in ordered]
+        return QueueResult(cards=items, limits=limits)
+
+    def _minutes_today(self, deck_folder: str, now: datetime) -> int:
+        start = datetime(now.year, now.month, now.day)
+        with session_scope(self.engine) as s:
+            total_ms = (
+                s.query(func.coalesce(func.sum(ReviewLog.response_time_ms), 0))
+                .filter(ReviewLog.deck_folder == deck_folder, ReviewLog.review_time >= start)
+                .scalar()
+            )
+        return int(total_ms) // 60_000
 
     def _done_today(self, deck_folder: str, now: datetime) -> DoneToday:
         start = datetime(now.year, now.month, now.day)
