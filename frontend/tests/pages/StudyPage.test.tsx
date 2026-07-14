@@ -31,7 +31,11 @@ const CARD = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRate.mockResolvedValue({ ok: true });
-  mockUseReviewQueue.mockReturnValue({ data: [CARD], isLoading: false, error: null });
+  mockUseReviewQueue.mockReturnValue({
+    data: { cards: [CARD], limits: { minutes_per_session: null } },
+    isLoading: false,
+    error: null,
+  });
 });
 
 describe('StudyPage', () => {
@@ -52,8 +56,31 @@ describe('StudyPage', () => {
   });
 
   it('shows an empty state when nothing is due', () => {
-    mockUseReviewQueue.mockReturnValue({ data: [], isLoading: false, error: null });
+    mockUseReviewQueue.mockReturnValue({
+      data: { cards: [], limits: { minutes_per_session: null } },
+      isLoading: false,
+      error: null,
+    });
     render(<StudyPage />);
     expect(screen.getByText(/nothing due in this deck/i)).toBeInTheDocument();
+  });
+
+  it('ends the session when the wall-clock time limit is passed', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const CARD2 = { ...CARD, card_id: 'c2' };
+    mockUseReviewQueue.mockReturnValue({
+      data: { cards: [CARD, CARD2], limits: { minutes_per_session: 25 } },
+      isLoading: false,
+      error: null,
+    });
+    render(<StudyPage />);
+    fireEvent.click(screen.getByRole('button', { name: /show answer/i }));
+    // jump the clock 26 minutes past session start before rating
+    nowSpy.mockReturnValue(1_000_000 + 26 * 60_000);
+    fireEvent.click(screen.getByRole('button', { name: /good/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/session time limit reached/i)).toBeInTheDocument(),
+    );
+    nowSpy.mockRestore();
   });
 });
