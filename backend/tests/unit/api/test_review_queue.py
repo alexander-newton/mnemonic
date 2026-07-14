@@ -48,11 +48,12 @@ def test_queue_returns_items(tmp_path: Path):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) == 1
-    assert body[0]["card_id"] == "card-aaaabbbb"
-    assert body[0]["front"] == "A [...] equilibrium."
-    assert body[0]["answer"] == "A **Nash** equilibrium."
-    assert set(body[0]["previews"].keys()) == {"1", "2", "3", "4"}
+    assert len(body["cards"]) == 1
+    assert body["cards"][0]["card_id"] == "card-aaaabbbb"
+    assert body["cards"][0]["front"] == "A [...] equilibrium."
+    assert body["cards"][0]["answer"] == "A **Nash** equilibrium."
+    assert set(body["cards"][0]["previews"].keys()) == {"1", "2", "3", "4"}
+    assert body["limits"] == {"minutes_per_session": None}
 
 
 def test_queue_unknown_deck_404(tmp_path: Path):
@@ -78,3 +79,17 @@ def test_queue_malformed_policy_returns_422(tmp_path: Path):
 
     assert resp.status_code == 422
     assert "order" in resp.json()["detail"]
+
+
+def test_queue_surfaces_minutes_per_session(tmp_path: Path):
+    vault, engine = _setup(tmp_path)
+    (vault / ".mnemonic").mkdir(parents=True, exist_ok=True)
+    (vault / ".mnemonic" / "policy.toml").write_text("[[rule]]\nminutes_per_session = 30\n")
+    _override(vault, engine)
+    try:
+        resp = TestClient(app).get("/api/reviews/queue?deck=gt")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert resp.json()["limits"]["minutes_per_session"] == 30
