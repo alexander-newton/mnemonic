@@ -2,9 +2,9 @@
 
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { QueuedCard } from '../types';
+import type { QueueResponse } from '../types';
 
-export function useReviewQueue(deck?: string): UseQueryResult<QueuedCard[], Error> {
+export function useReviewQueue(deck?: string): UseQueryResult<QueueResponse, Error> {
   return useQuery({
     queryKey: ['review-queue', deck],
     queryFn: () => {
