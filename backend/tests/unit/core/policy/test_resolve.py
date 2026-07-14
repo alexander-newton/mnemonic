@@ -14,6 +14,8 @@ def _rule(**kw):
         "per_session": None,
         "order": None,
         "interleave_new_every": None,
+        "minutes_per_day": None,
+        "minutes_per_session": None,
     }
     base.update(kw)
     return Rule(**base)
@@ -56,3 +58,20 @@ def test_order_and_interleave_applied():
     rules = [_rule(order="interleave", interleave_new_every=4)]
     eff = resolve_policy(seed=SEED, rules=rules, deck="gt")
     assert eff.order == "interleave" and eff.interleave_new_every == 4
+
+
+def test_time_keys_unset_are_none():
+    eff = resolve_policy(seed=SEED, rules=[], deck="gt")
+    assert eff.minutes_per_day is None and eff.minutes_per_session is None
+
+
+def test_time_keys_resolve_top_level():
+    rules = [_rule(minutes_per_day=40, minutes_per_session=25)]
+    eff = resolve_policy(seed=SEED, rules=rules, deck="gt")
+    assert eff.minutes_per_day == 40 and eff.minutes_per_session == 25
+
+
+def test_later_time_rule_overrides_earlier():
+    rules = [_rule(minutes_per_day=40), _rule(minutes_per_day=10)]
+    eff = resolve_policy(seed=SEED, rules=rules, deck="gt")
+    assert eff.minutes_per_day == 10

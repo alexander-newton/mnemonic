@@ -29,6 +29,8 @@ class EffectivePolicy:
     due: Limits
     order: str
     interleave_new_every: int | None
+    minutes_per_day: int | None = None
+    minutes_per_session: int | None = None
 
 
 @dataclass(frozen=True)
@@ -67,9 +69,36 @@ def _apply(eff: EffectivePolicy, rule: Rule) -> EffectivePolicy:
         if rule.interleave_new_every is not None
         else eff.interleave_new_every
     )
+    mpd = rule.minutes_per_day if rule.minutes_per_day is not None else eff.minutes_per_day
+    mps = (
+        rule.minutes_per_session
+        if rule.minutes_per_session is not None
+        else eff.minutes_per_session
+    )
     if rule.scope == "all":
-        return replace(eff, all=new_slot, order=order, interleave_new_every=ine)
+        return replace(
+            eff,
+            all=new_slot,
+            order=order,
+            interleave_new_every=ine,
+            minutes_per_day=mpd,
+            minutes_per_session=mps,
+        )
     elif rule.scope == "new":
-        return replace(eff, new=new_slot, order=order, interleave_new_every=ine)
+        return replace(
+            eff,
+            new=new_slot,
+            order=order,
+            interleave_new_every=ine,
+            minutes_per_day=mpd,
+            minutes_per_session=mps,
+        )
     else:  # rule.scope == "due"
-        return replace(eff, due=new_slot, order=order, interleave_new_every=ine)
+        return replace(
+            eff,
+            due=new_slot,
+            order=order,
+            interleave_new_every=ine,
+            minutes_per_day=mpd,
+            minutes_per_session=mps,
+        )
