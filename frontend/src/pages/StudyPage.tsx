@@ -11,13 +11,17 @@ import { Skeleton, ErrorMessage, EmptyState, Button } from '@/components/ui';
 export const StudyPage: React.FC = () => {
   const { deckId } = useParams();
   const navigate = useNavigate();
-  const { data: queue, isLoading, error } = useReviewQueue(deckId);
+  const { data, isLoading, error } = useReviewQueue(deckId);
+  const queue = data?.cards;
+  const minutesPerSession = data?.limits.minutes_per_session ?? null;
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [shownAt, setShownAt] = useState(() => Date.now());
+  const [sessionStart] = useState(() => Date.now());
   const [rating, setRating] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
 
   if (isLoading) {
     return (
@@ -40,6 +44,16 @@ export const StudyPage: React.FC = () => {
       </div>
     );
   }
+  if (timedOut) {
+    return (
+      <div className="min-h-screen bg-app p-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">
+          Session time limit reached — reviewed {index} card{index === 1 ? '' : 's'}
+        </h1>
+        <Button onClick={() => navigate(`/decks/${deckId}`)}>Back to deck</Button>
+      </div>
+    );
+  }
   if (index >= queue.length) {
     return (
       <div className="min-h-screen bg-app p-8 text-center">
@@ -54,10 +68,13 @@ export const StudyPage: React.FC = () => {
   const card = queue[index];
 
   const advance = () => {
+    const overtime =
+      minutesPerSession != null && Date.now() - sessionStart >= minutesPerSession * 60_000;
     setRevealed(false);
     setRateError(null);
     setShownAt(Date.now());
     setIndex((i) => i + 1);
+    if (overtime) setTimedOut(true);
   };
 
   const rate = (value: number) => {

@@ -11,7 +11,16 @@ from mnemonic.exceptions import PolicyError
 
 _SCOPES = ("all", "new", "due")
 _ORDERS = ("due_first", "new_first", "interleave", "shuffle")
-_ALLOWED_KEYS = {"deck", "scope", "per_day", "per_session", "order", "interleave_new_every"}
+_ALLOWED_KEYS = {
+    "deck",
+    "scope",
+    "per_day",
+    "per_session",
+    "order",
+    "interleave_new_every",
+    "minutes_per_day",
+    "minutes_per_session",
+}
 
 
 @dataclass(frozen=True)
@@ -24,6 +33,8 @@ class Rule:
     per_session: int | None
     order: Literal["due_first", "new_first", "interleave", "shuffle"] | None
     interleave_new_every: int | None
+    minutes_per_day: int | None = None
+    minutes_per_session: int | None = None
 
 
 def load_rules(vault_root: Path) -> list[Rule]:
@@ -66,6 +77,15 @@ def _parse_rule(index: int, raw: dict) -> Rule:
         raise PolicyError(
             f"policy.toml rule #{index}: order='interleave' requires interleave_new_every."
         )
+    minutes_per_day = _non_negative(index, "minutes_per_day", raw.get("minutes_per_day"))
+    minutes_per_session = _non_negative(
+        index, "minutes_per_session", raw.get("minutes_per_session")
+    )
+    if (minutes_per_day is not None or minutes_per_session is not None) and scope != "all":
+        raise PolicyError(
+            f"policy.toml rule #{index}: minutes_per_day/minutes_per_session are only "
+            f"allowed on scope='all', not '{scope}'."
+        )
     return Rule(
         deck=raw.get("deck"),
         scope=scope,
@@ -73,6 +93,8 @@ def _parse_rule(index: int, raw: dict) -> Rule:
         per_session=per_session,
         order=order,
         interleave_new_every=ine,
+        minutes_per_day=minutes_per_day,
+        minutes_per_session=minutes_per_session,
     )
 
 

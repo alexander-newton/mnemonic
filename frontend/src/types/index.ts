@@ -286,3 +286,11 @@ export interface QueuedCard {
   answer: string;
   previews: Record<string, number>;
 }
+
+/**
+ * Response from review queue endpoint (cards plus session limits).
+ */
+export interface QueueResponse {
+  cards: QueuedCard[];
+  limits: { minutes_per_session: number | null };
+}

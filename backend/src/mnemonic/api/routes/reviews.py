@@ -14,7 +14,7 @@ from mnemonic.exceptions import (
     RenderError,
 )
 from mnemonic.services.review import ReviewService
-from mnemonic.services.review_queue import QueuedCard, QueueService
+from mnemonic.services.review_queue import QueuedCard, QueueResult, QueueService
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -37,16 +37,23 @@ def _serialize_queued(q: QueuedCard) -> dict:
     }
 
 
+def _serialize_result(result: QueueResult) -> dict:
+    return {
+        "cards": [_serialize_queued(q) for q in result.cards],
+        "limits": {"minutes_per_session": result.limits.minutes_per_session},
+    }
+
+
 @router.get("/queue")
-def review_queue(deck: str, svc: QueueService = Depends(get_queue_service)) -> list[dict]:
-    """Return the ordered, display-ready review queue for a deck."""
+def review_queue(deck: str, svc: QueueService = Depends(get_queue_service)) -> dict:
+    """Return the ordered, display-ready review queue for a deck, plus client limits."""
     try:
-        items = svc.build(deck)
+        result = svc.build(deck)
     except DeckNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (RenderError, PolicyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return [_serialize_queued(q) for q in items]
+    return _serialize_result(result)
 
 
 @router.post("/rate")

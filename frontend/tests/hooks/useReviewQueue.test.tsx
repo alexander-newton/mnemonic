@@ -20,10 +20,13 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('useReviewQueue', () => {
   it('fetches the queue for a deck', async () => {
-    (api.reviewQueue as any).mockResolvedValue([{ card_id: 'c1' }]);
+    (api.reviewQueue as any).mockResolvedValue({
+      cards: [{ card_id: 'c1' }],
+      limits: { minutes_per_session: null },
+    });
     const { result } = renderHook(() => useReviewQueue('gt'), { wrapper: wrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.cards).toHaveLength(1);
     expect(api.reviewQueue).toHaveBeenCalledWith('gt');
   });
 
