@@ -51,6 +51,8 @@ def test_parses_valid_rules_in_order(tmp_path: Path):
         per_session=None,
         order="due_first",
         interleave_new_every=None,
+        minutes_per_day=None,
+        minutes_per_session=None,
     )
     assert rules[2].deck == "gt" and rules[2].scope == "new"
     assert rules[2].per_day == 10 and rules[2].per_session == 5
@@ -85,3 +87,21 @@ def test_interleave_requires_positive_every(tmp_path: Path):
 def test_malformed_toml_raises(tmp_path: Path):
     with pytest.raises(PolicyError, match="valid TOML"):
         load_rules(_write(tmp_path, "this is = = not toml"))
+
+
+def test_parses_time_keys(tmp_path: Path):
+    rules = load_rules(
+        _write(tmp_path, "[[rule]]\nminutes_per_day = 40\nminutes_per_session = 25\n")
+    )
+    assert rules[0].minutes_per_day == 40
+    assert rules[0].minutes_per_session == 25
+
+
+def test_negative_minutes_raises(tmp_path: Path):
+    with pytest.raises(PolicyError, match="minutes_per_day"):
+        load_rules(_write(tmp_path, "[[rule]]\nminutes_per_day = -1\n"))
+
+
+def test_time_key_on_non_all_scope_raises(tmp_path: Path):
+    with pytest.raises(PolicyError, match="scope='all'"):
+        load_rules(_write(tmp_path, '[[rule]]\nscope = "new"\nminutes_per_day = 10\n'))
