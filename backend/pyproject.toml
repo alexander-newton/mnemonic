@@ -41,6 +41,7 @@ dependencies = [
 ]
 
 [project.scripts]
+mnemonic-generate = "mnemonic.cli.generate:main"
 mnemonic-label = "mnemonic.cli.label:main"
 mnemonic-optimize = "mnemonic.cli.optimize:main"
 mnemonic-reconcile = "mnemonic.cli.reconcile:main"
