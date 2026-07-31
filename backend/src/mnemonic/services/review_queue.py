@@ -18,7 +18,8 @@ from mnemonic.core.fsrs.state import to_card_state
 from mnemonic.core.policy.resolve import EffectivePolicy, Limits, SeedLimits, resolve_policy
 from mnemonic.core.policy.rules import load_rules
 from mnemonic.core.review.faces import build_faces
-from mnemonic.db.models import ReviewLog
+from mnemonic.core.variation.choose import VariationCandidate, choose_variation  # noqa: F401
+from mnemonic.db.models import ReviewLog, TrainingExample, VariationMeta
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import DeckNotFoundError
 from mnemonic.vault.repository import Card, VaultRepository
@@ -231,6 +232,40 @@ class QueueService:
             if cid not in latest or when > latest[cid]:
                 latest[cid] = when
         return latest
+
+    def _variation_candidates(self, card_ids: list[str]) -> dict[str, list[VariationCandidate]]:
+        """Non-invalidated variations per card, joined to their displayable Q/A text."""
+        if not card_ids:
+            return {}
+        with session_scope(self.engine) as s:
+            rows = (
+                s.query(
+                    VariationMeta.card_id,
+                    VariationMeta.id,
+                    TrainingExample.variation_q,
+                    TrainingExample.variation_a,
+                    VariationMeta.shown_count,
+                    VariationMeta.generated_at,
+                )
+                .join(TrainingExample, TrainingExample.variation_id == VariationMeta.id)
+                .filter(
+                    VariationMeta.card_id.in_(card_ids),
+                    VariationMeta.invalidated_at.is_(None),
+                )
+                .all()
+            )
+        out: dict[str, list[VariationCandidate]] = {}
+        for card_id, vid, question, answer, shown, generated in rows:
+            out.setdefault(card_id, []).append(
+                VariationCandidate(
+                    variation_id=vid,
+                    question=question,
+                    answer=answer,
+                    shown_count=shown,
+                    generated_at=generated,
+                )
+            )
+        return out
 
     def _to_item(self, card: Card, last_review: datetime | None, now: datetime) -> QueuedCard:
         faces = build_faces(syntax=card.syntax, front=card.front, back=card.back)

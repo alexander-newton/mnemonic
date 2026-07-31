@@ -270,3 +270,87 @@ def test_result_surfaces_minutes_per_session(tmp_path):
     result = svc.build("gt")
     assert len(result.cards) == 1
     assert result.limits.minutes_per_session == 25
+
+
+def test_variation_candidates_filters_and_joins(tmp_path):
+    from datetime import datetime
+
+    from mnemonic.db.models import Base, TrainingExample, VariationMeta
+    from mnemonic.db.sqlite import create_engine, session_scope
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    when = datetime(2026, 7, 1, 12, 0, 0)
+
+    def _meta(vid, card_id, *, shown=0, invalidated=None):
+        return VariationMeta(
+            id=vid,
+            card_id=card_id,
+            strategy="rephrase",
+            model="m",
+            generated_at=when,
+            shown_count=shown,
+            helpful_count=0,
+            content_hash="h",
+            note_path="n.qmd",
+            invalidated_at=invalidated,
+        )
+
+    def _example(vid, card_id):
+        return TrainingExample(
+            id=f"te-{vid}",
+            card_id=card_id,
+            variation_id=vid,
+            base_q="bq",
+            base_a="ba",
+            variation_q=f"vq-{vid}",
+            variation_a=f"va-{vid}",
+            label=0,
+            created_at=when,
+        )
+
+    with session_scope(engine) as s:
+        s.add(_meta("v-ok", "card-a", shown=3))
+        s.add(_example("v-ok", "card-a"))
+        s.add(_meta("v-dead", "card-a", invalidated=when))  # excluded: invalidated
+        s.add(_example("v-dead", "card-a"))
+        s.add(_meta("v-orphan", "card-a"))  # excluded: no TrainingExample
+        s.add(_meta("v-other", "card-b"))  # different card
+        s.add(_example("v-other", "card-b"))
+
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=50,
+        default_due_per_day=50,
+    )
+    got = svc._variation_candidates(["card-a", "card-b"])
+
+    assert [c.variation_id for c in got["card-a"]] == ["v-ok"]
+    assert got["card-a"][0].question == "vq-v-ok"
+    assert got["card-a"][0].answer == "va-v-ok"
+    assert got["card-a"][0].shown_count == 3
+    assert [c.variation_id for c in got["card-b"]] == ["v-other"]
+
+
+def test_variation_candidates_empty_for_no_ids(tmp_path):
+    from mnemonic.db.models import Base
+    from mnemonic.db.sqlite import create_engine
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    svc = QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=50,
+        default_due_per_day=50,
+    )
+    assert svc._variation_candidates([]) == {}
