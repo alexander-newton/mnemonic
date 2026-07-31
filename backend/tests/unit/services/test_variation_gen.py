@@ -164,3 +164,67 @@ def test_prior_variations_excludes_invalidated(tmp_path: Path):
     assert len(got) == 1
     assert set(got[0]) == {"q", "a", "rating"}
     assert got[0]["q"] == "vq"
+
+
+def _stub_generator():
+    """A VariationGenerator whose client returns a canned Completion."""
+    from unittest.mock import MagicMock
+
+    from mnemonic.llm.client import Completion, Usage
+    from mnemonic.llm.variation.generator import VariationGenerator
+
+    client = MagicMock()
+    client.generate.return_value = Completion(
+        text="Q: Rephrased?\nA: Yes.",
+        model="claude-haiku-4-5",
+        usage=Usage(
+            input_tokens=10,
+            output_tokens=5,
+            cache_read_tokens=0,
+            cache_creation_tokens=0,
+            cost_millicents=7,
+        ),
+    )
+    prompts_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "mnemonic" / "llm" / "prompts" / "variation"
+    )
+    return VariationGenerator(client=client, prompts_dir=prompts_dir), client
+
+
+def test_generate_for_card_persists_everything(tmp_path: Path):
+    from mnemonic.core.optimization.registry import ensure_champion_versions
+    from mnemonic.db.models import LLMUsage, TrainingExample, VariationMeta
+    from mnemonic.services.variation_gen import generate_for_card, select_targets
+
+    repo, engine = _setup(tmp_path, n_cards=1)
+    prompts_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "mnemonic" / "llm" / "prompts" / "variation"
+    )
+    with session_scope(engine) as s:
+        ensure_champion_versions(s, prompts_dir=prompts_dir, now=WHEN)
+    generator, client = _stub_generator()
+    target = select_targets(repo, engine, deck=None, limit=1)[0]
+
+    variation_id = generate_for_card(
+        target,
+        engine=engine,
+        generator=generator,
+        vault_root=repo.vault_root,
+        model_default="m-default",
+        model_rephrase="m-rephrase",
+    )
+
+    assert client.generate.called
+    with session_scope(engine) as s:
+        meta = s.get(VariationMeta, variation_id)
+        assert meta is not None
+        assert meta.card_id == "card-00000000"
+        assert meta.arm == "champion"
+        assert meta.prompt_version_id is not None
+        assert meta.shown_count == 0
+        assert (
+            s.query(TrainingExample).filter(TrainingExample.variation_id == variation_id).count()
+            == 1
+        )
+        assert s.query(LLMUsage).count() == 1
+    assert "### " in target.card.note_path.read_text()  # note entry appended

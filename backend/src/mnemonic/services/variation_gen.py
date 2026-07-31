@@ -8,8 +8,14 @@ from typing import Any
 
 from sqlalchemy import Engine
 
+from mnemonic.core.optimization.registry import get_champion
+from mnemonic.core.review.faces import build_faces
 from mnemonic.db.models import ReviewLog, TrainingExample, VariationMeta
 from mnemonic.db.sqlite import session_scope
+from mnemonic.llm.router import pick_model
+from mnemonic.llm.variation.generator import VariationGenerator
+from mnemonic.llm.variation.strategy import select_strategy
+from mnemonic.llm.variation.writer import persist_variation
 from mnemonic.vault.note import parse_note
 from mnemonic.vault.repository import Card, VaultRepository
 
@@ -111,3 +117,62 @@ def prior_variations(engine: Engine, card_id: str) -> list[dict[str, Any]]:
             .all()
         )
     return [{"q": q, "a": a, "rating": rating} for q, a, rating in rows]
+
+
+def generate_for_card(
+    target: GenerationTarget,
+    *,
+    engine: Engine,
+    generator: VariationGenerator,
+    vault_root: Path,
+    model_default: str,
+    model_rephrase: str,
+) -> str:
+    """Generate and persist one variation for a card. Returns the new variation_id.
+
+    Raises:
+        LLMError: If generation fails or the response cannot be parsed.
+        OptimizationError: If the strategy has no champion PromptVersion.
+        MalformedNoteError: If the note cannot be parsed.
+    """
+    card = target.card
+    card_section, context = note_inputs(card.note_path)
+    ratings = recent_ratings(engine, card.card_id)
+    strategy = select_strategy(reps=card.reps, lapses=card.lapses, recent_ratings=ratings)
+    model = pick_model(
+        strategy=strategy,
+        recent_failures=sum(1 for r in ratings if r == 1),
+        model_default=model_default,
+        model_rephrase=model_rephrase,
+    )
+    with session_scope(engine) as s:
+        champion = get_champion(s, strategy)
+        prompt_version_id = champion.id
+        instruction_text = champion.instruction_text
+    variation = generator.generate(
+        strategy=strategy,
+        base_card_text=card_section,
+        note_context=context,
+        prior_variations=prior_variations(engine, card.card_id),
+        fsrs={
+            "stability": card.stability,
+            "reps": card.reps,
+            "lapses": card.lapses,
+            "recent_ratings": ratings,
+        },
+        model=model,
+        instruction_text=instruction_text,
+    )
+    faces = build_faces(syntax=card.syntax, front=card.front, back=card.back)
+    return persist_variation(
+        engine=engine,
+        note_path=card.note_path,
+        card_id=card.card_id,
+        variation=variation,
+        vault_root=vault_root,
+        prompt_version_id=prompt_version_id,
+        arm="champion",
+        base_q=faces.front,
+        base_a=faces.answer,
+        note_context=context or None,
+    )
