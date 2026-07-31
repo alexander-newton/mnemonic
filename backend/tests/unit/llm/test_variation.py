@@ -51,3 +51,69 @@ def test_generator_parses_qa_from_response():
     assert out.question == "When is X?"
     assert out.answer == "When Y."
     assert out.cost_millicents == 15
+
+
+def test_instruction_text_overrides_the_on_disk_strategy():
+    client = MagicMock()
+    client.generate.return_value = Completion(
+        text="Q: When is X?\nA: When Y.",
+        model="claude-haiku-4-5",
+        usage=Usage(
+            input_tokens=100,
+            output_tokens=20,
+            cache_read_tokens=0,
+            cache_creation_tokens=0,
+            cost_millicents=15,
+        ),
+    )
+    prompts_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "mnemonic" / "llm" / "prompts" / "variation"
+    )
+    gen = VariationGenerator(client=client, prompts_dir=prompts_dir)
+
+    gen.generate(
+        strategy="rephrase",
+        base_card_text="A ==term==.",
+        note_context="ctx",
+        prior_variations=[],
+        fsrs={"stability": 1.0, "reps": 1, "lapses": 0, "recent_ratings": [3]},
+        model="m",
+        instruction_text="SENTINEL-INSTRUCTION-TEXT",
+    )
+
+    system_blocks = client.generate.call_args.kwargs["system"]
+    joined = "\n".join(b.text for b in system_blocks)
+    assert "SENTINEL-INSTRUCTION-TEXT" in joined
+
+
+def test_without_instruction_text_the_disk_strategy_is_used():
+    client = MagicMock()
+    client.generate.return_value = Completion(
+        text="Q: When is X?\nA: When Y.",
+        model="claude-haiku-4-5",
+        usage=Usage(
+            input_tokens=100,
+            output_tokens=20,
+            cache_read_tokens=0,
+            cache_creation_tokens=0,
+            cost_millicents=15,
+        ),
+    )
+    prompts_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "mnemonic" / "llm" / "prompts" / "variation"
+    )
+    disk_text = (prompts_dir / "strategies" / "rephrase.md").read_text()
+    gen = VariationGenerator(client=client, prompts_dir=prompts_dir)
+
+    gen.generate(
+        strategy="rephrase",
+        base_card_text="A ==term==.",
+        note_context="ctx",
+        prior_variations=[],
+        fsrs={"stability": 1.0, "reps": 1, "lapses": 0, "recent_ratings": [3]},
+        model="m",
+    )
+
+    system_blocks = client.generate.call_args.kwargs["system"]
+    joined = "\n".join(b.text for b in system_blocks)
+    assert disk_text.strip()[:60] in joined
