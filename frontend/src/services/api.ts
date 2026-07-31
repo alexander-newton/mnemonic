@@ -143,8 +143,14 @@ export const api = {
 
   // ---- Reviews ----
 
-  /** Submit a card rating. */
-  rate: (payload: { card_id: string; rating: number; response_time_ms: number }) =>
+  /** Submit a card rating (optionally reporting the variation shown). */
+  rate: (payload: {
+    card_id: string;
+    rating: number;
+    response_time_ms: number;
+    variation_id?: string;
+    variation_helpful?: number;
+  }) =>
     request<{ ok: true }>('/reviews/rate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

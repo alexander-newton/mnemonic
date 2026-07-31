@@ -26,6 +26,9 @@ const CARD = {
   front: 'A [...] equilibrium.',
   answer: 'A **Nash** equilibrium.',
   previews: { '1': 0, '2': 1, '3': 4, '4': 9 },
+  variation_id: null,
+  variation_front: null,
+  variation_answer: null,
 };
 
 beforeEach(() => {
@@ -82,5 +85,49 @@ describe('StudyPage', () => {
       expect(screen.getByText(/session time limit reached/i)).toBeInTheDocument(),
     );
     nowSpy.mockRestore();
+  });
+
+  const VAR_CARD = {
+    ...CARD,
+    variation_id: 'v1',
+    variation_front: 'Rephrased question?',
+    variation_answer: 'Rephrased answer.',
+  };
+
+  it('renders the variation question and badge when a variation is present', () => {
+    mockUseReviewQueue.mockReturnValue({
+      data: { cards: [VAR_CARD], limits: { minutes_per_session: null } },
+      isLoading: false,
+      error: null,
+    });
+    render(<StudyPage />);
+    expect(screen.getByText('Rephrased question?')).toBeInTheDocument();
+    expect(screen.queryByText('A [...] equilibrium.')).toBeNull();
+    expect(screen.getByText(/variation/i)).toBeInTheDocument();
+  });
+
+  it('reveals the variation answer and posts helpfulness with the rating', async () => {
+    mockUseReviewQueue.mockReturnValue({
+      data: { cards: [VAR_CARD], limits: { minutes_per_session: null } },
+      isLoading: false,
+      error: null,
+    });
+    render(<StudyPage />);
+    fireEvent.click(screen.getByRole('button', { name: /show answer/i }));
+    expect(screen.getByText('Rephrased answer.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /helpful/i }));
+    fireEvent.click(screen.getByRole('button', { name: /good/i }));
+    expect(mockRate).toHaveBeenCalledWith(
+      expect.objectContaining({ card_id: 'c1', rating: 3, variation_id: 'v1', variation_helpful: 1 }),
+    );
+  });
+
+  it('posts no variation fields for a base card', () => {
+    render(<StudyPage />);
+    fireEvent.click(screen.getByRole('button', { name: /show answer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /good/i }));
+    const payload = mockRate.mock.calls[0][0];
+    expect(payload.variation_id).toBeUndefined();
+    expect(payload.variation_helpful).toBeUndefined();
   });
 });

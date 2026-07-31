@@ -6,7 +6,7 @@ import { useReviewQueue } from '@/hooks/useReviewQueue';
 import { api } from '@/services/api';
 import { CardContent } from '@/components/review/CardContent';
 import { RatingButtons } from '@/components/review/RatingButtons';
-import { Skeleton, ErrorMessage, EmptyState, Button } from '@/components/ui';
+import { Skeleton, ErrorMessage, EmptyState, Button, Badge } from '@/components/ui';
 
 export const StudyPage: React.FC = () => {
   const { deckId } = useParams();
@@ -22,6 +22,7 @@ export const StudyPage: React.FC = () => {
   const [rating, setRating] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
+  const [helpful, setHelpful] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -67,11 +68,16 @@ export const StudyPage: React.FC = () => {
 
   const card = queue[index];
 
+  const isVariation = card.variation_id != null;
+  const frontText = card.variation_front ?? card.front;
+  const answerText = card.variation_answer ?? card.answer;
+
   const advance = () => {
     const overtime =
       minutesPerSession != null && Date.now() - sessionStart >= minutesPerSession * 60_000;
     setRevealed(false);
     setRateError(null);
+    setHelpful(null);
     setShownAt(Date.now());
     setIndex((i) => i + 1);
     if (overtime) setTimedOut(true);
@@ -81,7 +87,17 @@ export const StudyPage: React.FC = () => {
     setRating(true);
     setRateError(null);
     api
-      .rate({ card_id: card.card_id, rating: value, response_time_ms: Date.now() - shownAt })
+      .rate({
+        card_id: card.card_id,
+        rating: value,
+        response_time_ms: Date.now() - shownAt,
+        ...(isVariation && card.variation_id
+          ? {
+              variation_id: card.variation_id,
+              ...(helpful !== null ? { variation_helpful: helpful } : {}),
+            }
+          : {}),
+      })
       .then(() => advance())
       .catch((e) => setRateError(e instanceof Error ? e.message : 'Rating failed'))
       .finally(() => setRating(false));
@@ -94,11 +110,16 @@ export const StudyPage: React.FC = () => {
           {index + 1} / {queue.length}
         </div>
         <div className="bg-surface rounded-lg shadow p-6 mb-6">
-          <CardContent markdown={card.front} />
+          {isVariation && (
+            <div className="mb-3">
+              <Badge variant="info">variation</Badge>
+            </div>
+          )}
+          <CardContent markdown={frontText} />
           {revealed && (
             <>
               <hr className="my-4 border-border-app" />
-              <CardContent markdown={card.answer} />
+              <CardContent markdown={answerText} />
             </>
           )}
         </div>
@@ -108,7 +129,26 @@ export const StudyPage: React.FC = () => {
           </div>
         )}
         {revealed ? (
-          <RatingButtons previews={card.previews} onRate={rate} disabled={rating} />
+          <div className="space-y-4">
+            {isVariation && (
+              <div className="flex items-center justify-center gap-3 text-sm">
+                <span className="text-muted">Was this rephrasing helpful?</span>
+                <Button
+                  variant={helpful === 1 ? 'primary' : 'ghost'}
+                  onClick={() => setHelpful(1)}
+                >
+                  👍 Helpful
+                </Button>
+                <Button
+                  variant={helpful === 0 ? 'primary' : 'ghost'}
+                  onClick={() => setHelpful(0)}
+                >
+                  👎 No
+                </Button>
+              </div>
+            )}
+            <RatingButtons previews={card.previews} onRate={rate} disabled={rating} />
+          </div>
         ) : (
           <div className="flex justify-center">
             <Button onClick={() => setRevealed(true)}>Show answer</Button>

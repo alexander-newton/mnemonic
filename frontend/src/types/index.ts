@@ -285,6 +285,9 @@ export interface QueuedCard {
   front: string;
   answer: string;
   previews: Record<string, number>;
+  variation_id: string | null;
+  variation_front: string | null;
+  variation_answer: string | null;
 }
 
 /**
