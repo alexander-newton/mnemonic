@@ -141,3 +141,21 @@ def test_persist_variation_purpose_contains_strategy(engine, note_path, vault_ro
 
     purposes = {r.purpose for r in rows}
     assert purposes == {"variation:rephrase", "variation:specialize", "variation:generalize"}
+
+
+def test_new_variation_starts_unshown(engine, note_path, vault_root):
+    """A newly persisted variation must have shown_count == 0."""
+    from mnemonic.db.models import VariationMeta
+
+    variation_id = persist_variation(
+        engine=engine,
+        note_path=note_path,
+        card_id="card-aabbccdd",
+        variation=_make_variation(),
+        vault_root=vault_root,
+        prompt_version_id="pv-1",
+        base_q="bq",
+        base_a="ba",
+    )
+    with session_scope(engine) as s:
+        assert s.get(VariationMeta, variation_id).shown_count == 0

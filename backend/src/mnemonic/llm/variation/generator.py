@@ -83,6 +83,7 @@ class VariationGenerator:
         prior_variations: list[dict[str, Any]],
         fsrs: dict[str, Any],
         model: str,
+        instruction_text: str | None = None,
     ) -> GeneratedVariation:
         """Generate a variation for the given card using the specified strategy.
 
@@ -93,6 +94,8 @@ class VariationGenerator:
             prior_variations: List of prior variation dicts with keys q, a, rating.
             fsrs: Dict with keys stability, reps, lapses, recent_ratings.
             model: The model identifier to use for generation.
+            instruction_text: Optional strategy prompt text to use instead of reading
+                ``strategies/<strategy>.md`` from disk (e.g. a compiled champion).
 
         Returns:
             A GeneratedVariation with parsed question and answer.
@@ -102,7 +105,9 @@ class VariationGenerator:
                 cannot be parsed into Q:/A: blocks.
         """
         skill_md = self._load_skill()
-        strategy_md = self._load_strategy(strategy)
+        strategy_md = (
+            instruction_text if instruction_text is not None else self._load_strategy(strategy)
+        )
         system_blocks = build_cached_system(
             skill_md=skill_md, strategy_md=strategy_md, note_context=note_context
         )

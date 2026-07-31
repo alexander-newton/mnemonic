@@ -76,7 +76,7 @@ def persist_variation(
                 strategy=variation.strategy,
                 model=variation.model,
                 generated_at=now,
-                shown_count=1,
+                shown_count=0,
                 helpful_count=0,
                 content_hash=content_hash,
                 note_path=rel_path,
