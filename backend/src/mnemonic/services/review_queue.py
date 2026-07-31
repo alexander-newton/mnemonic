@@ -18,7 +18,8 @@ from mnemonic.core.fsrs.state import to_card_state
 from mnemonic.core.policy.resolve import EffectivePolicy, Limits, SeedLimits, resolve_policy
 from mnemonic.core.policy.rules import load_rules
 from mnemonic.core.review.faces import build_faces
-from mnemonic.db.models import ReviewLog
+from mnemonic.core.variation.choose import VariationCandidate, choose_variation
+from mnemonic.db.models import ReviewLog, TrainingExample, VariationMeta
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import DeckNotFoundError
 from mnemonic.vault.repository import Card, VaultRepository
@@ -120,6 +121,9 @@ class QueuedCard:
     front: str
     answer: str
     previews: dict[int, int]
+    variation_id: str | None = None
+    variation_front: str | None = None
+    variation_answer: str | None = None
 
 
 @dataclass(frozen=True)
@@ -191,7 +195,24 @@ class QueueService:
         )
         ordered = self.policy.build_queue(ctx)
         last_reviews = self._last_reviews([c.card_id for c in ordered])
-        items = [self._to_item(c, last_reviews.get(c.card_id), now) for c in ordered]
+        candidates = self._variation_candidates([c.card_id for c in ordered])
+        var_enabled = deck.config.variation_enabled if deck.config else False
+        var_frequency = deck.config.variation_frequency if deck.config else 0.0
+        rng = random.Random(ctx.seed)
+        items = [
+            self._to_item(
+                c,
+                last_reviews.get(c.card_id),
+                now,
+                choose_variation(
+                    candidates.get(c.card_id, []),
+                    enabled=var_enabled,
+                    frequency=var_frequency,
+                    roll=rng.random(),
+                ),
+            )
+            for c in ordered
+        ]
         return QueueResult(cards=items, limits=limits)
 
     def _minutes_today(self, deck_folder: str, now: datetime) -> int:
@@ -232,7 +253,47 @@ class QueueService:
                 latest[cid] = when
         return latest
 
-    def _to_item(self, card: Card, last_review: datetime | None, now: datetime) -> QueuedCard:
+    def _variation_candidates(self, card_ids: list[str]) -> dict[str, list[VariationCandidate]]:
+        """Non-invalidated variations per card, joined to their displayable Q/A text."""
+        if not card_ids:
+            return {}
+        with session_scope(self.engine) as s:
+            rows = (
+                s.query(
+                    VariationMeta.card_id,
+                    VariationMeta.id,
+                    TrainingExample.variation_q,
+                    TrainingExample.variation_a,
+                    VariationMeta.shown_count,
+                    VariationMeta.generated_at,
+                )
+                .join(TrainingExample, TrainingExample.variation_id == VariationMeta.id)
+                .filter(
+                    VariationMeta.card_id.in_(card_ids),
+                    VariationMeta.invalidated_at.is_(None),
+                )
+                .all()
+            )
+        out: dict[str, list[VariationCandidate]] = {}
+        for card_id, vid, question, answer, shown, generated in rows:
+            out.setdefault(card_id, []).append(
+                VariationCandidate(
+                    variation_id=vid,
+                    question=question,
+                    answer=answer,
+                    shown_count=shown,
+                    generated_at=generated,
+                )
+            )
+        return out
+
+    def _to_item(
+        self,
+        card: Card,
+        last_review: datetime | None,
+        now: datetime,
+        variation: VariationCandidate | None = None,
+    ) -> QueuedCard:
         faces = build_faces(syntax=card.syntax, front=card.front, back=card.back)
         state = to_card_state(
             stability=card.stability,
@@ -251,4 +312,7 @@ class QueueService:
             front=faces.front,
             answer=faces.answer,
             previews=previews,
+            variation_id=variation.variation_id if variation else None,
+            variation_front=variation.question if variation else None,
+            variation_answer=variation.answer if variation else None,
         )

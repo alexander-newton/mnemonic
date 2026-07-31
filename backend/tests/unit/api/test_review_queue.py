@@ -93,3 +93,18 @@ def test_queue_surfaces_minutes_per_session(tmp_path: Path):
 
     assert resp.status_code == 200
     assert resp.json()["limits"]["minutes_per_session"] == 30
+
+
+def test_queue_serializes_variation_fields_as_null_when_absent(tmp_path: Path):
+    vault, engine = _setup(tmp_path)
+    _override(vault, engine)
+    try:
+        resp = TestClient(app).get("/api/reviews/queue?deck=gt")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    card = resp.json()["cards"][0]
+    assert card["variation_id"] is None
+    assert card["variation_front"] is None
+    assert card["variation_answer"] is None

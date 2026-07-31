@@ -34,6 +34,9 @@ def _serialize_queued(q: QueuedCard) -> dict:
         "front": q.front,
         "answer": q.answer,
         "previews": {str(rating): days for rating, days in q.previews.items()},
+        "variation_id": q.variation_id,
+        "variation_front": q.variation_front,
+        "variation_answer": q.variation_answer,
     }
 
 

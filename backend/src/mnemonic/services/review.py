@@ -6,18 +6,19 @@ import uuid
 from datetime import datetime, timedelta
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 
 from mnemonic.core.fsrs.defaults import NEW_CARD_DEFAULTS
 from mnemonic.core.fsrs.models import CardState
 from mnemonic.core.fsrs.scheduler import schedule_review
 from mnemonic.core.fsrs.state import to_card_state
-from mnemonic.db.models import ReviewLog, SchedulingState
+from mnemonic.db.models import ReviewLog, SchedulingState, VariationMeta
 from mnemonic.db.sqlite import session_scope
 from mnemonic.exceptions import CardNotFoundError
 from mnemonic.vault.repository import VaultRepository
 
 
-def _last_review_time(session, card_id: str) -> datetime | None:
+def _last_review_time(session: Session, card_id: str) -> datetime | None:
     row = (
         session.query(ReviewLog)
         .filter(ReviewLog.card_id == card_id)
@@ -134,3 +135,10 @@ class ReviewService:
                     deck_folder=card.deck_folder.name,
                 )
             )
+
+            if variation_id is not None:
+                meta = s.get(VariationMeta, variation_id)
+                if meta is not None:
+                    meta.shown_count += 1
+                    if variation_helpful:
+                        meta.helpful_count += 1
