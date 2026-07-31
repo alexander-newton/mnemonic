@@ -102,3 +102,65 @@ def test_deck_filter(tmp_path: Path):
     repo, engine = _setup(tmp_path)
     assert select_targets(repo, engine, deck="gt", limit=10) != []
     assert select_targets(repo, engine, deck="other", limit=10) == []
+
+
+def test_note_inputs_returns_raw_card_section_and_context(tmp_path: Path):
+    from mnemonic.services.variation_gen import note_inputs
+
+    note = tmp_path / "n.qmd"
+    note.write_text(
+        "---\ntitle: t\n---\n## Card\n\nA {{c1::term}}. ^card-n0\n\n"
+        "## Context\n\nSome context here.\n"
+    )
+
+    card_section, context = note_inputs(note)
+
+    assert "{{c1::term}}" in card_section  # raw markers, NOT build_faces output
+    assert "Some context here." in context
+
+
+def test_note_inputs_context_is_empty_when_absent(tmp_path: Path):
+    from mnemonic.services.variation_gen import note_inputs
+
+    note = tmp_path / "n.qmd"
+    note.write_text("---\ntitle: t\n---\n## Card\n\nA {{c1::term}}. ^card-n0\n")
+
+    _, context = note_inputs(note)
+
+    assert context == ""
+
+
+def test_recent_ratings_newest_first_and_capped(tmp_path: Path):
+    from mnemonic.db.models import ReviewLog
+    from mnemonic.services.variation_gen import recent_ratings
+
+    _, engine = _setup(tmp_path, n_cards=1)
+    with session_scope(engine) as s:
+        for i, rating in enumerate([1, 2, 3, 4, 1, 2]):
+            s.add(
+                ReviewLog(
+                    id=f"r{i}",
+                    card_id="card-00000000",
+                    rating=rating,
+                    response_time_ms=100,
+                    review_time=datetime(2026, 7, 1, 12, i, 0),
+                )
+            )
+
+    got = recent_ratings(engine, "card-00000000", n=3)
+
+    assert got == [2, 1, 4]  # newest first, capped at 3
+
+
+def test_prior_variations_excludes_invalidated(tmp_path: Path):
+    from mnemonic.services.variation_gen import prior_variations
+
+    _, engine = _setup(tmp_path, n_cards=1)
+    _add_variation(engine, "card-00000000", "v-live")
+    _add_variation(engine, "card-00000000", "v-dead", invalidated=WHEN)
+
+    got = prior_variations(engine, "card-00000000")
+
+    assert len(got) == 1
+    assert set(got[0]) == {"q", "a", "rating"}
+    assert got[0]["q"] == "vq"
