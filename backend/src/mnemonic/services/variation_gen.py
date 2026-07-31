@@ -12,6 +12,13 @@ from mnemonic.core.optimization.registry import get_champion
 from mnemonic.core.review.faces import build_faces
 from mnemonic.db.models import ReviewLog, TrainingExample, VariationMeta
 from mnemonic.db.sqlite import session_scope
+from mnemonic.exceptions import (
+    LLMBudgetExceededError,
+    LLMError,
+    MalformedNoteError,
+    OptimizationError,
+)
+from mnemonic.llm.budget import BudgetGuard
 from mnemonic.llm.router import pick_model
 from mnemonic.llm.variation.generator import VariationGenerator
 from mnemonic.llm.variation.strategy import select_strategy
@@ -175,4 +182,88 @@ def generate_for_card(
         base_q=faces.front,
         base_a=faces.answer,
         note_context=context or None,
+    )
+
+
+@dataclass(frozen=True)
+class GenerationReport:
+    """Outcome of one generation run."""
+
+    generated: list[str]
+    skipped: list[tuple[str, str]]
+    budget_stopped: bool
+    targets: list[str]
+
+
+def run_generate(
+    *,
+    repo: VaultRepository,
+    engine: Engine,
+    generator: VariationGenerator | None,
+    deck: str | None,
+    limit: int,
+    model_default: str,
+    model_rephrase: str,
+    daily_cents: int,
+    monthly_cents: int,
+    dry_run: bool = False,
+) -> GenerationReport:
+    """Generate variations for eligible cards.
+
+    Budget exhaustion stops the run; a per-card failure is recorded and skipped.
+
+    Args:
+        repo: Vault repository.
+        engine: SQLAlchemy engine for state database.
+        generator: VariationGenerator (required unless dry_run is True).
+        deck: Optional deck-folder name filter.
+        limit: Maximum number of cards to target.
+        model_default: Default model for variation generation.
+        model_rephrase: Model for rephrase strategy.
+        daily_cents: Daily budget cap in cents.
+        monthly_cents: Monthly budget cap in cents.
+        dry_run: If True, return targets without generating or calling LLM.
+
+    Returns:
+        GenerationReport with generated card IDs, skipped (card_id, error) tuples,
+        budget_stopped flag, and target card IDs.
+
+    Raises:
+        ValueError: If generator is None and dry_run is False.
+    """
+    targets = select_targets(repo, engine, deck=deck, limit=limit)
+    target_ids = [t.card.card_id for t in targets]
+    if dry_run:
+        return GenerationReport(generated=[], skipped=[], budget_stopped=False, targets=target_ids)
+    if generator is None:
+        raise ValueError("A VariationGenerator is required unless dry_run=True.")
+
+    guard = BudgetGuard(engine=engine, daily_cents=daily_cents, monthly_cents=monthly_cents)
+    generated: list[str] = []
+    skipped: list[tuple[str, str]] = []
+    for target in targets:
+        try:
+            guard.assert_within_budget()
+        except LLMBudgetExceededError:
+            return GenerationReport(
+                generated=generated,
+                skipped=skipped,
+                budget_stopped=True,
+                targets=target_ids,
+            )
+        try:
+            generated.append(
+                generate_for_card(
+                    target,
+                    engine=engine,
+                    generator=generator,
+                    vault_root=repo.vault_root,
+                    model_default=model_default,
+                    model_rephrase=model_rephrase,
+                )
+            )
+        except (LLMError, MalformedNoteError, OptimizationError, ValueError) as exc:
+            skipped.append((target.card.card_id, f"{type(exc).__name__}: {exc}"))
+    return GenerationReport(
+        generated=generated, skipped=skipped, budget_stopped=False, targets=target_ids
     )

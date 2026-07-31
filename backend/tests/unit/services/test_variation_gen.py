@@ -228,3 +228,114 @@ def test_generate_for_card_persists_everything(tmp_path: Path):
         )
         assert s.query(LLMUsage).count() == 1
     assert "### " in target.card.note_path.read_text()  # note entry appended
+
+
+def _seed_champions(engine):
+    from mnemonic.core.optimization.registry import ensure_champion_versions
+
+    prompts_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "mnemonic" / "llm" / "prompts" / "variation"
+    )
+    with session_scope(engine) as s:
+        ensure_champion_versions(s, prompts_dir=prompts_dir, now=WHEN)
+
+
+def test_run_generate_happy_path(tmp_path: Path):
+    from mnemonic.services.variation_gen import run_generate
+
+    repo, engine = _setup(tmp_path, n_cards=2)
+    _seed_champions(engine)
+    generator, _ = _stub_generator()
+
+    report = run_generate(
+        repo=repo,
+        engine=engine,
+        generator=generator,
+        deck=None,
+        limit=10,
+        model_default="d",
+        model_rephrase="r",
+        daily_cents=1000,
+        monthly_cents=10000,
+    )
+
+    assert len(report.generated) == 2
+    assert report.skipped == []
+    assert report.budget_stopped is False
+
+
+def test_run_generate_skips_a_failing_card_and_continues(tmp_path: Path):
+    from mnemonic.exceptions import LLMError
+    from mnemonic.services.variation_gen import run_generate
+
+    repo, engine = _setup(tmp_path, n_cards=2)
+    _seed_champions(engine)
+    generator, client = _stub_generator()
+    ok = client.generate.return_value
+    client.generate.side_effect = [LLMError("bad response"), ok]
+
+    report = run_generate(
+        repo=repo,
+        engine=engine,
+        generator=generator,
+        deck=None,
+        limit=10,
+        model_default="d",
+        model_rephrase="r",
+        daily_cents=1000,
+        monthly_cents=10000,
+    )
+
+    assert len(report.generated) == 1
+    assert len(report.skipped) == 1
+    assert "bad response" in report.skipped[0][1]
+    assert report.budget_stopped is False
+
+
+def test_run_generate_stops_when_budget_exhausted(tmp_path: Path):
+    from mnemonic.services.variation_gen import run_generate
+
+    repo, engine = _setup(tmp_path, n_cards=2)
+    _seed_champions(engine)
+    generator, client = _stub_generator()
+
+    report = run_generate(
+        repo=repo,
+        engine=engine,
+        generator=generator,
+        deck=None,
+        limit=10,
+        model_default="d",
+        model_rephrase="r",
+        daily_cents=0,
+        monthly_cents=0,
+    )
+
+    assert report.generated == []
+    assert report.budget_stopped is True
+    assert client.generate.call_count == 0
+
+
+def test_run_generate_dry_run_makes_no_calls(tmp_path: Path):
+    from mnemonic.services.variation_gen import run_generate
+
+    repo, engine = _setup(tmp_path, n_cards=2)
+    _seed_champions(engine)
+    generator, client = _stub_generator()
+
+    report = run_generate(
+        repo=repo,
+        engine=engine,
+        generator=generator,
+        deck=None,
+        limit=10,
+        model_default="d",
+        model_rephrase="r",
+        daily_cents=1000,
+        monthly_cents=10000,
+        dry_run=True,
+    )
+
+    assert client.generate.call_count == 0
+    assert report.generated == []
+    assert len(report.targets) == 2
