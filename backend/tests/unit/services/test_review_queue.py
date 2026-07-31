@@ -354,3 +354,87 @@ def test_variation_candidates_empty_for_no_ids(tmp_path):
         default_due_per_day=50,
     )
     assert svc._variation_candidates([]) == {}
+
+
+def _vault_with_variation(tmp_path, *, enabled: bool, frequency: float):
+    """A deck with one new card that has one valid variation. Returns (vault, engine)."""
+    from datetime import datetime
+
+    from mnemonic.db.models import Base, TrainingExample, VariationMeta
+    from mnemonic.db.sqlite import create_engine, session_scope
+
+    vault = tmp_path / "vault"
+    (vault / "01_Projects" / "gt").mkdir(parents=True)
+    (vault / "01_Projects" / "gt" / "_deck.md").write_text(
+        f"---\ndeck_name: GT\nvariation_enabled: {str(enabled).lower()}\n"
+        f"variation_frequency: {frequency}\nleech_threshold: 8\n"
+        "daily_review_limit: 100\ndaily_new_limit: 10\n---\n"
+    )
+    (vault / "01_Projects" / "gt" / "n0.qmd").write_text(
+        "---\ntitle: n0\n---\n## Card\n\nA {{c1::Nash}} equilibrium. ^card-abcd1234\n"
+    )
+    engine = create_engine(vault / ".mnemonic" / "state.sqlite")
+    Base.metadata.create_all(engine)
+    when = datetime(2026, 7, 1, 12, 0, 0)
+    with session_scope(engine) as s:
+        s.add(
+            VariationMeta(
+                id="v1",
+                card_id="card-abcd1234",
+                strategy="rephrase",
+                model="m",
+                generated_at=when,
+                shown_count=0,
+                helpful_count=0,
+                content_hash="h",
+                note_path="n0.qmd",
+            )
+        )
+        s.add(
+            TrainingExample(
+                id="te1",
+                card_id="card-abcd1234",
+                variation_id="v1",
+                base_q="bq",
+                base_a="ba",
+                variation_q="Rephrased question?",
+                variation_a="Rephrased answer.",
+                label=0,
+                created_at=when,
+            )
+        )
+    return vault, engine
+
+
+def _svc(vault, engine):
+    from mnemonic.services.review_queue import QueueService
+    from mnemonic.vault.repository import VaultRepository
+
+    return QueueService(
+        repo=VaultRepository(vault_root=vault, engine=engine),
+        engine=engine,
+        default_new_per_day=50,
+        default_due_per_day=50,
+    )
+
+
+def test_queue_item_carries_variation_when_enabled(tmp_path):
+    vault, engine = _vault_with_variation(tmp_path, enabled=True, frequency=1.0)
+    card = _svc(vault, engine).build("gt").cards[0]
+    assert card.variation_id == "v1"
+    assert card.variation_front == "Rephrased question?"
+    assert card.variation_answer == "Rephrased answer."
+
+
+def test_queue_item_has_no_variation_when_disabled(tmp_path):
+    vault, engine = _vault_with_variation(tmp_path, enabled=False, frequency=1.0)
+    card = _svc(vault, engine).build("gt").cards[0]
+    assert card.variation_id is None
+    assert card.variation_front is None
+    assert card.variation_answer is None
+
+
+def test_queue_item_has_no_variation_at_zero_frequency(tmp_path):
+    vault, engine = _vault_with_variation(tmp_path, enabled=True, frequency=0.0)
+    card = _svc(vault, engine).build("gt").cards[0]
+    assert card.variation_id is None
