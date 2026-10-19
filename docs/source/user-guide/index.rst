@@ -51,6 +51,9 @@ Every card-note follows the same canonical structure:
 - ``## Card`` uses exactly one of the three supported syntaxes (cloze,
   highlight, or callout — not mixed). All markers in the section are
   revealed together at review time; the note is one FSRS-scheduled unit.
+- Cloze answers may contain balanced braces, so LaTeX works inside them
+  (``{{c1::\dfrac{a}{2}}}``, ``{{c2::\mathbb{R}^2}}``). A marker closes at the
+  first ``}}`` outside any brace group; ``\{`` and ``\}`` count as literal braces.
 - ``## Context`` is user-authored, free-form, and fed to the LLM verbatim
   when generating variations.
 - ``## Variations`` is managed by Mnemonic between the

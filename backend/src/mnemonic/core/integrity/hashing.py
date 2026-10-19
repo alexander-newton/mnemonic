@@ -15,10 +15,10 @@ import hashlib
 import re
 import unicodedata
 
+from mnemonic.core import cloze
 from mnemonic.exceptions import IntegrityError
 
 _BLOCK_ID_RE = re.compile(r"\^card-[0-9a-z]+")
-_CLOZE_RE = re.compile(r"\{\{c(\d+)::([^}]+)\}\}")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
@@ -38,7 +38,7 @@ def _require_core(card_body: str) -> str:
 def normalize_core(card_body: str) -> str:
     """Case/whitespace-fold a card body and reduce cloze markers to their answer text."""
     nfc = unicodedata.normalize("NFC", _strip_block_id(card_body))
-    declozed = _CLOZE_RE.sub(lambda m: m.group(2), nfc)
+    declozed = cloze.sub(lambda c: c.text, nfc)
     folded = declozed.casefold()
     return _WHITESPACE_RE.sub(" ", folded).strip()
 
@@ -59,7 +59,7 @@ def cloze_signature(card_body: str) -> str | None:
 
     Returns None when the body contains no cloze markers.
     """
-    pairs = _CLOZE_RE.findall(_strip_block_id(card_body))
+    pairs = cloze.findall(_strip_block_id(card_body))
     if not pairs:
         return None
     canon = "\n".join(f"{num}::{text.strip()}" for num, text in sorted(pairs))

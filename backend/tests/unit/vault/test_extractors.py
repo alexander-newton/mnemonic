@@ -114,3 +114,15 @@ def test_dispatcher_no_syntax_raises():
 
     with pytest.raises(InvalidCardSyntaxError):
         extract_card("plain text")
+
+
+def test_cloze_answer_with_latex_braces_is_extracted():
+    card = extract_cloze(r"Best response is $q_1 = {{c1::\dfrac{a - c - q_2}{2}}}$.")
+    assert card.cloze_terms == [r"\dfrac{a - c - q_2}{2}"]
+    assert card.front == "Best response is $q_1 = [...]$."
+
+
+def test_every_cloze_blanked_when_one_contains_braces():
+    card = extract_cloze(r"{{c1::Fubini}} swaps integrals on {{c2::\mathbb{R}^2}}.")
+    assert card.cloze_terms == ["Fubini", r"\mathbb{R}^2"]
+    assert card.front == "[...] swaps integrals on [...]."
