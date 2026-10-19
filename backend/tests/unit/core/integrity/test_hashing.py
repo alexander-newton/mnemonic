@@ -72,3 +72,15 @@ def test_cloze_signature_stable_under_reordering_in_text():
 
 def test_cloze_signature_changes_when_number_changes():
     assert cloze_signature("{{c1::alpha}}") != cloze_signature("{{c2::alpha}}")
+
+
+def test_normalize_core_declozes_answers_with_braces():
+    body = r"Best response is $q_1 = {{c1::\dfrac{a - c - q_2}{2}}}$."
+    assert normalize_core(body) == r"best response is $q_1 = \dfrac{a - c - q_2}{2}$."
+
+
+def test_cloze_signature_sees_answers_with_braces():
+    assert cloze_signature(r"$q = {{c1::\dfrac{a}{2}}}$") is not None
+    one = cloze_signature(r"{{c1::Fubini}} on {{c2::\mathbb{R}^2}}.")
+    other = cloze_signature(r"{{c1::Fubini}} on {{c2::\mathbb{R}^3}}.")
+    assert one != other

@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from mnemonic.core import cloze
 from mnemonic.exceptions import RenderError
 
-_CLOZE_RE = re.compile(r"\{\{c(\d+)::([^}]+)\}\}")
 _BLOCK_ID_RE = re.compile(r"\^card-[0-9a-z]+")
 
 
@@ -50,7 +50,7 @@ def build_faces(*, syntax: str, front: str, back: str) -> ReviewFaces:
         RenderError: If ``syntax`` is not a supported display syntax.
     """
     if syntax == "cloze":
-        answer = _CLOZE_RE.sub(lambda m: f"**{m.group(2)}**", back)
+        answer = cloze.sub(lambda c: f"**{c.text}**", back)
     elif syntax in ("highlight", "callout"):
         answer = back
     else:

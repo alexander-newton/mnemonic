@@ -7,12 +7,10 @@ per spec §4.2.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
+from mnemonic.core.cloze import iter_clozes
 from mnemonic.exceptions import InvalidCardSyntaxError
-
-_CLOZE_RE = re.compile(r"\{\{c(\d+)::([^}]+)\}\}")
 
 
 @dataclass(frozen=True)
@@ -28,8 +26,8 @@ def extract_cloze(card_section_text: str) -> ExtractedCard:
 
     Raises InvalidCardSyntaxError if no marker found.
     """
-    matches = list(_CLOZE_RE.finditer(card_section_text))
-    if not matches:
+    clozes = list(iter_clozes(card_section_text))
+    if not clozes:
         raise InvalidCardSyntaxError(
             "Cloze extractor invoked but no {{cN::...}} markers found in card section."
         )
@@ -37,12 +35,14 @@ def extract_cloze(card_section_text: str) -> ExtractedCard:
     terms: list[str] = []
     front_parts: list[str] = []
     last_end = 0
-    for m in matches:
-        front_parts.append(card_section_text[last_end : m.start()])
+    for c in clozes:
+        front_parts.append(card_section_text[last_end : c.start])
         front_parts.append("[...]")
-        terms.append(m.group(2))
-        last_end = m.end()
+        terms.append(c.text)
+        last_end = c.end
     front_parts.append(card_section_text[last_end:])
     front = "".join(front_parts).strip()
 
-    return ExtractedCard(syntax="cloze", front=front, back=card_section_text.strip(), cloze_terms=terms)
+    return ExtractedCard(
+        syntax="cloze", front=front, back=card_section_text.strip(), cloze_terms=terms
+    )

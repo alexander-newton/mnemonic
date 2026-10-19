@@ -45,3 +45,12 @@ def test_callout_answer_passes_through():
 def test_unknown_syntax_raises():
     with pytest.raises(RenderError):
         build_faces(syntax="image_cloze", front="x", back="y")
+
+
+def test_cloze_answer_with_braces_is_revealed():
+    faces = build_faces(
+        syntax="cloze",
+        front="[...] swaps integrals on [...].",
+        back=r"{{c1::Fubini}} swaps integrals on {{c2::\mathbb{R}^2}}.",
+    )
+    assert faces.answer == r"**Fubini** swaps integrals on **\mathbb{R}^2**."
